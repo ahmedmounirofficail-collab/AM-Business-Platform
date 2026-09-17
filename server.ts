@@ -485,6 +485,64 @@ dotenv.config();
 const appConfig = loadAppConfig();
 logConfigSummary(appConfig);
 
+const demoBootstrapAllowed = process.env.DEMO_MODE === 'true' || process.env.ALLOW_DEMO_SEED_DATA === 'true';
+
+function clearCustomerModeSeedData(): void {
+  if (demoBootstrapAllowed) return;
+
+  tenants = [];
+  companies = [];
+  branches = [];
+  departments = [];
+  costCenters = [];
+  profitCenters = [];
+  projects = [];
+  warehouses = [];
+  fiscalYears = [];
+  fiscalPeriods = [];
+  users = [];
+  employees = [];
+  leads = [];
+  customers = [];
+  inventory = [];
+  stockMovements = [];
+  salesInvoices = [];
+  purchaseOrders = [];
+  purchaseInvoices = [];
+  vendors = [];
+  supplierInvoices = [];
+  customerPayments = [];
+  supplierPayments = [];
+  approvalRequests = [];
+  auditLogs = [];
+  paymentBatches = [];
+  arCustomers = [];
+  arSalesInvoices = [];
+  arReceipts = [];
+  supplierInvoices = [];
+  apVouchers = [];
+  paymentProposals = [];
+  vendorPriceHistory = [];
+  goodsReceipts = [];
+  purchaseRequisitions = [];
+  rfqs = [];
+  vendorQuotations = [];
+  purchaseApprovalRules = [];
+  purchaseAmendments = [];
+  vendorReturns = [];
+  purchaseAuditLogs = [];
+  brands = [];
+  models = [];
+  itemGroups = [];
+  uomConversions = [];
+  packagingUnits = [];
+  warehouseZones = [];
+  binLocations = [];
+  batchLots = [];
+  serialNumbers = [];
+  stockQuants = [];
+}
+
 // In-Memory Database Repositories
 let tenants = [...INITIAL_TENANTS];
 let companies = [...INITIAL_COMPANIES];
@@ -1675,6 +1733,10 @@ if (startupPersistenceValidation.shouldAbort) {
 
 function initializePilotPersistence(): void {
   try {
+    if (!demoBootstrapAllowed) {
+      clearCustomerModeSeedData();
+    }
+
     // Enterprise Setup & Organizational Model
     tenants = initDurableCollection('tenants', tenants, pilotDb);
     companies = initDurableCollection('companies', companies, pilotDb);
