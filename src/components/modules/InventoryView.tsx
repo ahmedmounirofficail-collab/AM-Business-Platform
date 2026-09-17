@@ -49,15 +49,15 @@ import { InventoryFinancialIntegrationSubView } from './inventory/InventoryFinan
 import { InventoryClosingControlSubView } from './inventory/InventoryClosingControlSubView';
 
 export const InventoryView: React.FC = () => {
-  const { lang, triggerReload, reloadTrigger, activeUser } = usePlatform();
+  const { lang, triggerReload, reloadTrigger, currentUser } = usePlatform();
   const isAr = lang === 'ar';
 
-  const userRole = activeUser?.role || 'Super Admin';
+  const userRole = currentUser?.role || 'Super Admin';
   const isViewer = userRole === 'Viewer';
   const canEdit = !isViewer;
   const canManageConfig = userRole === 'Super Admin' || userRole === 'Inventory Manager' || userRole === 'Tenant Admin';
 
-  const [activeTab, setActiveTab] = useState<'master' | 'warehouse' | 'identity' | 'quants' | 'movements' | 'costing' | 'financial' | 'closing_control' | 'config'>('master');
+  const [activeTab, setActiveTab] = useState<'overview' | 'master' | 'warehouse' | 'identity' | 'quants' | 'movements' | 'costing' | 'financial' | 'closing_control' | 'config'>('overview');
 
 
   // State Collections
@@ -168,7 +168,7 @@ export const InventoryView: React.FC = () => {
         quantity,
         unitCost,
         reference,
-        performedBy: activeUser?.name || 'Ahmed Mounir'
+        performedBy: currentUser?.name || 'Ahmed Mounir'
       });
       setIsMovementModalOpen(false);
       triggerReload();
@@ -212,6 +212,18 @@ export const InventoryView: React.FC = () => {
 
       {/* Main Module Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 dark:border-slate-800 pb-2 text-xs font-bold">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl transition cursor-pointer ${
+            activeTab === 'overview'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          <span>{isAr ? 'نظرة عامة' : 'Overview'}</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('master')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-xl transition cursor-pointer ${
@@ -354,6 +366,56 @@ export const InventoryView: React.FC = () => {
       </div>
 
       {/* Tab Contents */}
+      {activeTab === 'overview' && (
+        <div className="space-y-4 py-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="card-am-surface rounded-xl p-4">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase">{isAr ? 'المخزون المتاح' : 'Stock on Hand'}</div>
+              <div className="mt-2 text-2xl font-bold text-slate-900">{items.reduce((sum, item) => sum + Number(item.stockQty || 0), 0).toLocaleString()}</div>
+            </div>
+            <div className="card-am-surface rounded-xl p-4">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase">{isAr ? 'مخزون منخفض' : 'Low Stock'}</div>
+              <div className="mt-2 text-2xl font-bold text-amber-600">{items.filter(item => Number(item.stockQty || 0) <= Number(item.minStock || 0)).length}</div>
+            </div>
+            <div className="card-am-surface rounded-xl p-4">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase">{isAr ? 'الاستلامات المعلقة' : 'Pending Receipts'}</div>
+              <div className="mt-2 text-2xl font-bold text-emerald-600">{movements.filter(m => m.movementType === 'Receipt').length}</div>
+            </div>
+            <div className="card-am-surface rounded-xl p-4">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase">{isAr ? 'قيمة المخزون' : 'Stock Value'}</div>
+              <div className="mt-2 text-2xl font-bold text-indigo-600">{totalStockValuation.toLocaleString()} SAR</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="card-am-surface rounded-xl p-5">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <h3 className="text-sm font-bold text-slate-900">{isAr ? 'الخطوات السريعة' : 'Quick Actions'}</h3>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button className="btn-am-secondary text-xs px-3 py-2 rounded-lg">{isAr ? 'استلام' : 'Receive'}</button>
+                <button className="btn-am-secondary text-xs px-3 py-2 rounded-lg">{isAr ? 'نقل' : 'Transfer'}</button>
+                <button className="btn-am-secondary text-xs px-3 py-2 rounded-lg">{isAr ? 'تسليم' : 'Deliver'}</button>
+                <button className="btn-am-secondary text-xs px-3 py-2 rounded-lg">{isAr ? 'تعديل' : 'Adjust'}</button>
+              </div>
+            </div>
+            <div className="card-am-surface rounded-xl p-5">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <h3 className="text-sm font-bold text-slate-900">{isAr ? 'الأصناف تحت الحد' : 'Items Below Reorder Level'}</h3>
+              </div>
+              <div className="mt-4 space-y-2 text-sm text-slate-600">
+                {items.filter(item => Number(item.stockQty || 0) <= Number(item.minStock || 0)).length > 0 ? items.filter(item => Number(item.stockQty || 0) <= Number(item.minStock || 0)).slice(0,4).map(item => (
+                  <div key={item.id} className="flex items-center justify-between border-b border-slate-100 pb-2 last:border-b-0 last:pb-0">
+                    <span>{item.name}</span>
+                    <span className="font-semibold text-amber-600">{item.stockQty} / {item.minStock || 0}</span>
+                  </div>
+                )) : <div className="text-slate-500">{isAr ? 'لا توجد أصناف بحاجة إلى إعادة الطلب.' : 'No items need replenishment.'}</div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'master' && (
         <ItemMasterSubView
           items={items}

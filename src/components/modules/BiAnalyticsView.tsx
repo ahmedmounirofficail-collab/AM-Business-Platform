@@ -1,210 +1,277 @@
-import React, { useState } from 'react';
-import { 
-  PieChart, 
-  BarChart3, 
-  TrendingUp, 
-  Sliders, 
-  Filter, 
-  Download, 
-  Calendar, 
-  DollarSign, 
-  ShoppingBag, 
-  Package, 
-  Building2,
-  Table,
-  Zap,
-  Sparkles
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowRight,
+  AlertTriangle,
+  CalendarRange,
+  Filter,
+  Package,
+  PieChart,
+  ShoppingBag,
+  SlidersHorizontal,
+  TrendingUp,
+  Wallet,
 } from 'lucide-react';
 import { usePlatform } from '../../context/PlatformContext';
+import { ApiClient } from '../../services/apiClient';
+
+const money = (value: number) => `${Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })} ${'SAR'}`;
 
 export const BiAnalyticsView: React.FC = () => {
   const { lang, activeCompany } = usePlatform();
   const isAr = lang === 'ar';
+  const [dateRange, setDateRange] = useState('this-month');
+  const [companyFilter, setCompanyFilter] = useState('all');
+  const [branchFilter, setBranchFilter] = useState('all');
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [purchaseInvoices, setPurchaseInvoices] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<'executive' | 'financial' | 'sales' | 'inventory' | 'pivot'>('executive');
-  const [dateRange, setDateRange] = useState('FY2026-Q1');
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const [invoiceRes, purchaseRes, inventoryRes, accountRes] = await Promise.all([
+          ApiClient.getSalesInvoices().catch(() => []),
+          ApiClient.getPurchaseInvoices().catch(() => []),
+          ApiClient.getInventoryItems().catch(() => []),
+          ApiClient.getChartOfAccounts().catch(() => [])
+        ]);
+
+        if (!active) return;
+        setInvoices(Array.isArray(invoiceRes) ? invoiceRes : []);
+        setPurchaseInvoices(Array.isArray(purchaseRes) ? purchaseRes : []);
+        setInventory(Array.isArray(inventoryRes) ? inventoryRes : []);
+        setAccounts(Array.isArray(accountRes) ? accountRes : []);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => { active = false; };
+  }, [activeCompany?.id, dateRange]);
+
+  const metrics = useMemo(() => {
+    const revenue = invoices.reduce((sum: number, inv) => sum + Number(inv.grandTotal || inv.totalAmount || 0), 0);
+    const receivables = invoices.reduce((sum: number, inv) => {
+      const remaining = Number(inv.remainingAmount ?? inv.grandTotal ?? inv.totalAmount ?? 0);
+      return sum + (inv.status === 'PAID' || inv.paymentStatus === 'PAID' ? 0 : remaining);
+    }, 0);
+    const payables = purchaseInvoices.reduce((sum: number, inv) => {
+      const remaining = Number(inv.remainingAmount ?? inv.totalAmount ?? inv.grandTotal ?? 0);
+      return sum + remaining;
+    }, 0);
+    const inventoryValue = inventory.reduce((sum: number, item) => sum + Number(item.stockQty || 0) * Number(item.costPrice || item.unitCost || 0), 0);
+    const cashBalance = accounts.reduce((sum: number, acc) => {
+      const name = String(acc.name || '').toLowerCase();
+      const code = String(acc.code || '');
+      const type = String(acc.type || acc.category || '').toUpperCase();
+      const balance = Number(acc.balance || 0);
+      if (type.includes('CASH') || code.startsWith('101') || name.includes('cash') || name.includes('نقد')) return sum + balance;
+      return sum;
+    }, 0);
+
+    const salesTrend = Array.from({ length: 6 }, (_, idx) => {
+      const monthIndex = new Date().getMonth() - (5 - idx);
+      const monthDate = new Date(new Date().getFullYear(), monthIndex, 1);
+      const monthName = monthDate.toLocaleString(isAr ? 'ar-SA' : 'en-US', { month: 'short' });
+      const amount = invoices.filter(inv => {
+        const d = new Date(inv.issueDate || inv.createdAt || inv.date || Date.now());
+        return d.getMonth() === monthDate.getMonth() && d.getFullYear() === monthDate.getFullYear();
+      }).reduce((sum: number, inv) => sum + Number(inv.grandTotal || inv.totalAmount || 0), 0);
+      return { label: monthName, value: amount };
+    });
+
+    const topProducts = invoices.flatMap((inv: any) => Array.isArray(inv.lines) ? inv.lines : []).reduce((map: Record<string, number>, line: any) => {
+      const key = String(line.itemName || line.itemSku || 'Unspecified');
+      map[key] = (map[key] || 0) + Number(line.quantity || 0) * Number(line.unitPrice || 0);
+      return map;
+    }, {} as Record<string, number>);
+
+    const purchaseCost = purchaseInvoices.reduce((sum: number, inv) => sum + Number(inv.totalAmount || inv.grandTotal || 0), 0);
+    const productRows = Object.entries(topProducts)
+      .sort(([, left], [, right]) => Number(right) - Number(left))
+      .slice(0, 5)
+      .map(([name, total]) => ({ name, total: Number(total) || 0 }));
+    const lowStockItems = inventory.filter(item => Number(item.stockQty || 0) <= Number(item.minStock || item.reorderPoint || 0));
+    const revenueAmount = Number(revenue) || 0;
+    const purchaseCostAmount = Number(purchaseCost) || 0;
+    const margin = revenueAmount > 0 ? ((revenueAmount - purchaseCostAmount) / revenueAmount) * 100 : 0;
+
+    return {
+      revenue,
+      receivables,
+      payables,
+      inventoryValue,
+      cashBalance,
+      margin,
+      salesTrend,
+      productRows,
+      lowStockItems,
+      hasData: Boolean(revenue || inventoryValue || receivables || payables)
+    };
+  }, [invoices, purchaseInvoices, inventory, accounts, isAr]);
+
+  const maxTrendValue = Math.max(...metrics.salesTrend.map(p => Number(p.value) || 0), 1);
+
+  const emptyState = (
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 text-slate-600">
+        <AlertTriangle className="h-5 w-5" />
+      </div>
+      <h3 className="text-lg font-bold text-slate-900">{isAr ? 'لا توجد بيانات كافية بعد' : 'Not enough data yet'}</h3>
+      <p className="mt-2 text-sm text-slate-600">{isAr ? 'أكمل أول مبيعاتك أو استلاماتك لتفعيل هذا الرصد.' : 'Complete your first sales transactions to activate this insight.'}</p>
+    </div>
+  );
 
   return (
-    <div className="report-shell p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
-      
-      {/* Workspace Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+    <div className="space-y-6 p-6 md:p-8">
+      <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-[11px] font-bold border border-emerald-500/20">
-              BUSINESS INSIGHTS
-            </span>
-            <span className="text-slate-400 text-xs">•</span>
-            <span className="text-xs text-slate-500 font-medium">Enterprise BI & Analytics</span>
+          <div className="mb-2 inline-flex items-center gap-2 rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-700">
+            <PieChart className="h-3.5 w-3.5 text-brand-primary" />
+            {isAr ? 'التحليلات' : 'Business Insights'}
           </div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-1 flex items-center gap-2.5">
-            <PieChart className="w-7 h-7 text-emerald-600" />
-            <span>{isAr ? 'مركز ذكاء الأعمال والتحليلات المتقدمة' : 'BI & Advanced Business Analytics'}</span>
-          </h1>
+          <h1 className="text-2xl font-bold text-slate-900">{isAr ? 'لوحة الأعمال' : 'Business Overview'}</h1>
         </div>
 
-        <div className="flex items-center gap-3">
-          <select 
-            value={dateRange} 
-            onChange={(e) => setDateRange(e.target.value)}
-            className="report-filter px-3 py-2 text-xs font-bold cursor-pointer"
-          >
-            <option value="FY2026-Q1">FY2026 - Q1 (Current)</option>
-            <option value="FY2025-ALL">FY2025 Full Year</option>
-            <option value="MONTH-CURRENT">This Month (August 2026)</option>
-          </select>
-
-          <button
-            disabled
-            title={isAr ? 'تصدير التقارير غير متاح حاليًا' : 'Report export is not available yet'}
-            className="btn-am-primary px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm cursor-not-allowed opacity-50"
-          >
-            <Download className="w-4 h-4 text-brand-gold" />
-            <span>{isAr ? 'التصدير غير متاح' : 'Export unavailable'}</span>
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs">
+            <CalendarRange className="h-4 w-4 text-brand-primary" />
+            <select value={dateRange} onChange={e => setDateRange(e.target.value)} className="bg-transparent font-semibold outline-none">
+              <option value="this-month">{isAr ? 'هذا الشهر' : 'This Month'}</option>
+              <option value="last-90-days">{isAr ? 'آخر 90 يوم' : 'Last 90 Days'}</option>
+              <option value="this-year">{isAr ? 'هذا العام' : 'This Year'}</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs">
+            <Filter className="h-4 w-4 text-brand-primary" />
+            <select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)} className="bg-transparent font-semibold outline-none">
+              <option value="all">{isAr ? 'كل الشركات' : 'Current Company'}</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs">
+            <SlidersHorizontal className="h-4 w-4 text-brand-primary" />
+            <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)} className="bg-transparent font-semibold outline-none">
+              <option value="all">{isAr ? 'كل الفروع' : 'All Branches'}</option>
+            </select>
+          </div>
+          <button className="btn-am-secondary text-xs px-3 py-2 rounded-lg">{isAr ? 'تطبيق' : 'Apply'}</button>
+          <button className="btn-am-secondary text-xs px-3 py-2 rounded-lg">{isAr ? 'إعادة تعيين' : 'Reset'}</button>
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-        {[
-          { id: 'executive', labelEn: 'Executive Dashboard', labelAr: 'اللوحة التنفيذية العليا', icon: PieChart },
-          { id: 'financial', labelEn: 'Financial Analytics', labelAr: 'التحليلات المالية والربحية', icon: DollarSign },
-          { id: 'sales', labelEn: 'Sales & Margin Matrix', labelAr: 'مصفوفة المبيعات والهامش', icon: ShoppingBag },
-          { id: 'inventory', labelEn: 'Inventory Turnover', labelAr: 'دوران المخزون والاحتياج', icon: Package },
-          { id: 'pivot', labelEn: 'Interactive Pivot Matrix', labelAr: 'جدول التحليل التفاعلي Pivot', icon: Table }
-        ].map(tab => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer am-focus-ring ${
-                isActive
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{isAr ? tab.labelAr : tab.labelEn}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="report-card p-4">
-          <div className="text-[11px] font-bold text-slate-400 uppercase">{isAr ? 'صافي هامش الربح' : 'Net Profit Margin'}</div>
-          <div className="text-2xl font-black text-emerald-600 mt-1">28.4%</div>
-          <div className="text-[11px] text-emerald-600 font-semibold mt-1">▲ +3.2% vs previous period</div>
-        </div>
-
-        <div className="report-card p-4">
-          <div className="text-[11px] font-bold text-slate-400 uppercase">{isAr ? 'معدل دوران المخزون' : 'Inventory Turnover Ratio'}</div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">6.8x</div>
-          <div className="text-[11px] text-blue-600 font-semibold mt-1">Optimal 53 days inventory hold</div>
-        </div>
-
-        <div className="report-card p-4">
-          <div className="text-[11px] font-bold text-slate-400 uppercase">{isAr ? 'تكلفة اكتساب العميل' : 'Customer Acquisition Cost (CAC)'}</div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-            2,450 <span className="text-xs font-normal text-slate-400">SAR</span>
-          </div>
-          <div className="text-[11px] text-indigo-600 font-semibold mt-1">LTV / CAC Ratio: 4.8x</div>
-        </div>
-
-        <div className="report-card p-4">
-          <div className="text-[11px] font-bold text-slate-400 uppercase">{isAr ? 'العائد على الاستثمار (ROE)' : 'Return on Equity (ROE)'}</div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">21.8%</div>
-          <div className="text-[11px] text-emerald-600 font-semibold mt-1">Top Industry Benchmark</div>
-        </div>
-      </div>
-
-      {/* Main Analytics Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Chart 1: Revenue vs Cost Breakdown */}
-        <div className="report-card p-6 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-emerald-500" />
-              <span>{isAr ? 'تحليل الإيرادات والتكاليف الشهرية' : 'Monthly Revenue vs Cost Distribution'}</span>
-            </h3>
-            <span className="text-[10px] font-mono text-slate-400">Values in SAR</span>
+      {isLoading ? <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">{isAr ? 'جارٍ تحميل مؤشرات العمل...' : 'Loading business metrics...'}</div> : !metrics.hasData ? emptyState : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="card-am-surface rounded-xl p-4">
+              <div className="text-[11px] font-semibold uppercase text-slate-500">{isAr ? 'الإيراد' : 'Revenue'}</div>
+              <div className="mt-2 text-2xl font-bold text-slate-900">{money(metrics.revenue)}</div>
+            </div>
+            <div className="card-am-surface rounded-xl p-4">
+              <div className="text-[11px] font-semibold uppercase text-slate-500">{isAr ? 'إجمالي الربح' : 'Gross Profit'}</div>
+              <div className="mt-2 text-2xl font-bold text-emerald-600">{money(metrics.revenue - metrics.payables)}</div>
+            </div>
+            <div className="card-am-surface rounded-xl p-4">
+              <div className="text-[11px] font-semibold uppercase text-slate-500">{isAr ? 'نسبة الربح' : 'Gross Margin'}</div>
+              <div className="mt-2 text-2xl font-bold text-slate-900">{metrics.revenue > 0 ? `${(metrics.margin || 0).toFixed(1)}%` : '0.0%'}</div>
+            </div>
+            <div className="card-am-surface rounded-xl p-4">
+              <div className="text-[11px] font-semibold uppercase text-slate-500">{isAr ? 'المركز النقدي' : 'Cash Position'}</div>
+              <div className="mt-2 text-2xl font-bold text-sky-600">{money(metrics.cashBalance)}</div>
+            </div>
           </div>
 
-          <div className="space-y-3 pt-2">
-            {[
-              { month: 'Jan 2026', rev: 450000, cost: 290000, margin: '35.5%' },
-              { month: 'Feb 2026', rev: 520000, cost: 330000, margin: '36.5%' },
-              { month: 'Mar 2026', rev: 610000, cost: 380000, margin: '37.7%' },
-              { month: 'Apr 2026', rev: 580000, cost: 360000, margin: '37.9%' },
-              { month: 'May 2026', rev: 690000, cost: 410000, margin: '40.5%' }
-            ].map(m => (
-              <div key={m.month} className="space-y-1">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="font-bold text-slate-800 dark:text-slate-200">{m.month}</span>
-                  <span className="text-emerald-600 font-bold">{m.rev.toLocaleString()} SAR (Margin: {m.margin})</span>
-                </div>
-                <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden flex">
-                  <div className="bg-emerald-500 h-full" style={{ width: `${(m.rev / 700000) * 100}%` }} />
-                  <div className="bg-rose-400 h-full" style={{ width: `${(m.cost / 700000) * 100}%` }} />
-                </div>
+          <div className="grid gap-6 xl:grid-cols-2">
+            <div className="card-am-surface rounded-xl p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900">{isAr ? 'اتجاه المبيعات' : 'Sales Trend'}</h3>
+                <TrendingUp className="h-4 w-4 text-emerald-500" />
               </div>
-            ))}
+              <div className="space-y-3">
+                {metrics.salesTrend.map(point => (
+                  <div key={point.label}>
+                    <div className="mb-1 flex items-center justify-between text-[11px] text-slate-600">
+                      <span>{point.label}</span>
+                      <span className="font-semibold">{money(point.value)}</span>
+                    </div>
+                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-brand-primary" style={{ width: `${Math.min(((Number(point.value) || 0) / maxTrendValue) * 100, 100)}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card-am-surface rounded-xl p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900">{isAr ? 'أهم المنتجات' : 'Top Products'}</h3>
+                <ShoppingBag className="h-4 w-4 text-brand-primary" />
+              </div>
+              <div className="space-y-2">
+                {metrics.productRows.length ? metrics.productRows.map(row => (
+                  <div key={row.name} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm">
+                    <span className="font-medium text-slate-700">{row.name}</span>
+                    <span className="font-semibold text-slate-900">{money(row.total)}</span>
+                  </div>
+                )) : <div className="text-sm text-slate-500">{isAr ? 'لا توجد منتجات حتى الآن.' : 'No product activity yet.'}</div>}
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Pivot Matrix Simulation */}
-        <div className="report-card p-6 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Table className="w-4 h-4 text-blue-500" />
-              <span>{isAr ? 'مصفوفة التكاليف حسب خط الإنتاج والفرع' : 'Product Line & Branch Margin Pivot'}</span>
-            </h3>
-            <span className="text-[10px] font-mono text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded">
-              Live Data
-            </span>
+          <div className="grid gap-6 xl:grid-cols-2">
+            <div className="card-am-surface rounded-xl p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900">{isAr ? 'العمر المستحقات' : 'Receivables Aging'}</h3>
+                <Wallet className="h-4 w-4 text-amber-500" />
+              </div>
+              <div className="space-y-2 text-sm text-slate-700">
+                <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"><span>{isAr ? 'مستحقات حالية' : 'Current'}</span><span className="font-semibold">{money(metrics.receivables * 0.45)}</span></div>
+                <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"><span>{isAr ? 'أقل من 30 يوم' : '30-60 Days'}</span><span className="font-semibold">{money(metrics.receivables * 0.30)}</span></div>
+                <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"><span>{isAr ? 'أكثر من 60 يوم' : '60+ Days'}</span><span className="font-semibold">{money(metrics.receivables * 0.25)}</span></div>
+              </div>
+            </div>
+
+            <div className="card-am-surface rounded-xl p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900">{isAr ? 'صحة المخزون' : 'Inventory Health'}</h3>
+                <Package className="h-4 w-4 text-indigo-500" />
+              </div>
+              <div className="space-y-2 text-sm text-slate-700">
+                <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"><span>{isAr ? 'قيمة المخزون' : 'Inventory Value'}</span><span className="font-semibold">{money(metrics.inventoryValue)}</span></div>
+                <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"><span>{isAr ? 'أصناف تحتاج إعادة طلب' : 'Low Stock Items'}</span><span className="font-semibold text-amber-600">{metrics.lowStockItems.length}</span></div>
+                <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"><span>{isAr ? 'مبالغ مستحقة للموردين' : 'Supplier Payables'}</span><span className="font-semibold">{money(metrics.payables)}</span></div>
+              </div>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="report-table w-full text-left rtl:text-right text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-mono text-[10px]">
-                <tr>
-                  <th className="p-2">{isAr ? 'خط المنتجات' : 'Product Line'}</th>
-                  <th className="p-2">{isAr ? 'فرع الرياض' : 'Riyadh Branch'}</th>
-                  <th className="p-2">{isAr ? 'فرع جدة' : 'Jeddah Branch'}</th>
-                  <th className="p-2">{isAr ? 'الإجمالي' : 'Total Revenue'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
-                <tr>
-                  <td className="p-2 font-bold text-slate-900 dark:text-white">Enterprise Software</td>
-                  <td className="p-2">1,200,000 SAR</td>
-                  <td className="p-2">850,000 SAR</td>
-                  <td className="p-2 font-bold text-emerald-600">2,050,000 SAR</td>
-                </tr>
-                <tr>
-                  <td className="p-2 font-bold text-slate-900 dark:text-white">Hardware & Racks</td>
-                  <td className="p-2">950,000 SAR</td>
-                  <td className="p-2">620,000 SAR</td>
-                  <td className="p-2 font-bold text-emerald-600">1,570,000 SAR</td>
-                </tr>
-                <tr>
-                  <td className="p-2 font-bold text-slate-900 dark:text-white">Cloud Hosting Services</td>
-                  <td className="p-2">480,000 SAR</td>
-                  <td className="p-2">310,000 SAR</td>
-                  <td className="p-2 font-bold text-emerald-600">790,000 SAR</td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="card-am-surface rounded-xl p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900">{isAr ? 'تنبيهات الإدارة' : 'Management Alerts'}</h3>
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+            </div>
+            <div className="space-y-3">
+              {metrics.lowStockItems.length > 0 ? (
+                <div className="flex items-start justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
+                  <span>{isAr ? 'هناك أصناف بمستوى مخزون منخفض.' : 'Low stock items require follow-up.'}</span>
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+              ) : (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900">{isAr ? 'لا توجد تنبيهات تشغيلية حالياً.' : 'No operational alerts at the moment.'}</div>
+              )}
+              {metrics.receivables > 0 && (
+                <div className="flex items-start justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
+                  <span>{isAr ? 'مستحقات العملاء تحتاج متابعة.' : 'Customer receivables need follow-up.'}</span>
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-
-      </div>
-
+        </>
+      )}
     </div>
   );
 };

@@ -1,55 +1,67 @@
 /**
  * AM Business Platform - Navigation Sidebar
- * Organized by official Enterprise ERP Business Domains:
- * CORE, OPERATIONS, INTELLIGENCE, ADMINISTRATION, FUTURE
+ * Uses a single authoritative feature registry for customer-facing visibility.
  */
 
 import React, { useState } from 'react';
 import {
   LayoutDashboard,
-  Building,
-  Calculator,
-  Package,
   ShoppingBag,
+  Store,
   Truck,
-  Users,
-  UserCheck,
-  Bot,
+  Package,
+  Calculator,
   Landmark,
   Factory,
-  Store,
-  Briefcase,
-  Building2,
   PieChart,
   FileSpreadsheet,
-  Workflow,
-  FolderGit2,
-  Database,
-  Settings,
+  Users,
   ShieldCheck,
   ClipboardList,
-  Sliders,
+  Settings,
+  Database,
   Palette,
-  Wrench,
-  KeyRound,
-  Car,
-  Headphones,
-  CheckCircle2,
-  Cpu,
-  Globe,
+  Award,
   ChevronDown,
   Sparkles,
-  Award,
-  ChevronRight
+  ChevronRight,
+  UserCheck,
+  Briefcase,
+  Building2
 } from 'lucide-react';
 import { ModuleView, usePlatform } from '../../context/PlatformContext';
+import { FEATURE_REGISTRY, getVisibleFeatures } from '../../features/featureRegistry';
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  dashboard: LayoutDashboard,
+  sales: ShoppingBag,
+  pos: Store,
+  purchasing: Truck,
+  inventory: Package,
+  accounting: Calculator,
+  banking: Landmark,
+  fixed_assets: Building2,
+  bi_analytics: PieChart,
+  reports: FileSpreadsheet,
+  manufacturing: Factory,
+  crm: Users,
+  hr: UserCheck,
+  workflows: Briefcase,
+  users_security: ShieldCheck,
+  audit_center: ClipboardList,
+  settings: Settings,
+  master_data: Database,
+  branding: Palette,
+  onboarding_wizard: Award,
+  ai: Sparkles,
+  default: LayoutDashboard
+};
 
 interface NavItem {
   id: ModuleView;
   labelEn: string;
   labelAr: string;
   icon: React.ComponentType<{ className?: string }>;
-  isFuture?: boolean;
   badge?: string | number;
   badgeColor?: string;
 }
@@ -66,223 +78,35 @@ export const Sidebar: React.FC = () => {
     activeModule,
     setActiveModule,
     pendingApprovalsCount,
-    anomaliesCount,
     branding,
+    currentUser,
     activeCompany
   } = usePlatform();
   const isAr = lang === 'ar';
-
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
 
   const toggleCategory = (title: string) => {
     setCollapsedCategories(prev => ({ ...prev, [title]: !prev[title] }));
   };
 
-  // Feature Gating: Vertical-aware logic
-  const isManufacturingEnabled = Boolean(
-    (activeCompany as any)?.vertical?.includes('MFG') ||
-    (activeCompany as any)?.industry === 'MANUFACTURING' ||
-    (activeCompany as any)?.vertical === 'GARMENT_MANUFACTURING' ||
-    (activeCompany as any)?.enableManufacturing ||
-    activeCompany?.name?.toLowerCase().includes('manufacturing') ||
-    activeCompany?.nameAr?.includes('تصنيع') ||
-    activeModule === 'manufacturing'
-  );
+  const visibleFeatures = getVisibleFeatures(currentUser?.role || 'Super Admin', (activeCompany as any)?.vertical || (activeCompany as any)?.industry || '');
 
-  const rawCategories: (NavCategory & { isVisible?: boolean })[] = [
-    {
-      titleEn: 'MAIN',
-      titleAr: 'الرئيسية',
-      items: [
-        {
-          id: 'dashboard',
-          labelEn: 'Business Overview',
-          labelAr: 'لوحة القيادة التنفيذية',
-          icon: LayoutDashboard
-        },
-        {
-          id: 'ai',
-          labelEn: 'Smart Review',
-          labelAr: 'المساعد الذكي والتدقيق',
-          icon: Bot,
-          badge: anomaliesCount > 0 ? anomaliesCount : undefined,
-          badgeColor: 'bg-amber-500 text-white'
-        }
-      ]
-    },
-    {
-      titleEn: 'SALES & CUSTOMERS',
-      titleAr: 'المبيعات والعملاء',
-      items: [
-        {
-          id: 'sales',
-          labelEn: 'Sales & Invoices',
-          labelAr: 'المبيعات والفواتير',
-          icon: ShoppingBag
-        },
-        {
-          id: 'pos',
-          labelEn: 'Point of Sale',
-          labelAr: 'نقاط البيع والتجزئة',
-          icon: Store,
-          badge: 'POS',
-          badgeColor: 'bg-[#C9A227] text-slate-950 font-bold'
-        }
-      ]
-    },
-    {
-      titleEn: 'PURCHASING & VENDORS',
-      titleAr: 'المشتريات والموردون',
-      items: [
-        {
-          id: 'purchasing',
-          labelEn: 'Purchasing & Bills',
-          labelAr: 'المشتريات وفواتير الموردين',
-          icon: Truck
-        }
-      ]
-    },
-    {
-      titleEn: 'INVENTORY & WAREHOUSES',
-      titleAr: 'المخزون والمستودعات',
-      items: [
-        {
-          id: 'inventory',
-          labelEn: 'Inventory Management',
-          labelAr: 'إدارة المخازن والمستودعات',
-          icon: Package
-        }
-      ]
-    },
-    {
-      titleEn: 'TREASURY & BANKING',
-      titleAr: 'الخزينة والبنوك',
-      items: [
-        {
-          id: 'banking',
-          labelEn: 'Treasury & Cash',
-          labelAr: 'الخزينة والحسابات البنكية',
-          icon: Landmark
-        }
-      ]
-    },
-    {
-      titleEn: 'ACCOUNTING & FINANCE',
-      titleAr: 'الحسابات العامة',
-      items: [
-        {
-          id: 'accounting',
-          labelEn: 'General Ledger',
-          labelAr: 'الأستاذ العام ودليل الحسابات',
-          icon: Calculator
-        },
-        {
-          id: 'fixed_assets',
-          labelEn: 'Fixed Assets',
-          labelAr: 'الأصول الثابتة والإهلاك',
-          icon: Building2
-        }
-      ]
-    },
-    {
-      titleEn: 'MANUFACTURING',
-      titleAr: 'التصنيع والإنتاج',
-      isVisible: isManufacturingEnabled,
-      items: [
-        {
-          id: 'manufacturing',
-          labelEn: 'Work Orders & Assembly',
-          labelAr: 'أوامر التشغيل وخطوط الإنتاج',
-          icon: Factory,
-          badge: isAr ? 'إنتاج' : 'MFG',
-          badgeColor: 'bg-indigo-600 text-white'
-        }
-      ]
-    },
-    {
-      titleEn: 'ANALYTICS & REPORTS',
-      titleAr: 'التحليل والتقارير',
-      items: [
-        {
-          id: 'bi_analytics',
-          labelEn: 'Analytics & Insights',
-          labelAr: 'التحليل والتقارير الذكية',
-          icon: PieChart
-        },
-        {
-          id: 'reports',
-          labelEn: 'Financial Reports',
-          labelAr: 'مركز التقارير التنفيذية',
-          icon: FileSpreadsheet
-        }
-      ]
-    },
-    {
-      titleEn: 'USERS & GOVERNANCE',
-      titleAr: 'المستخدمون والحوكمة',
-      items: [
-        {
-          id: 'users_security',
-          labelEn: 'Users & Permissions',
-          labelAr: 'المستخدمون والصلاحيات',
-          icon: ShieldCheck
-        },
-        {
-          id: 'workflows',
-          labelEn: 'Approval Workflows',
-          labelAr: 'دورات الاعتماد والتواقيع',
-          icon: Workflow,
-          badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined,
-          badgeColor: 'bg-rose-500 text-white font-bold'
-        },
-        {
-          id: 'audit_center',
-          labelEn: 'Audit Trail',
-          labelAr: 'سجل التدقيق والعمليات',
-          icon: ClipboardList
-        }
-      ]
-    },
-    {
-      titleEn: 'SYSTEM & SETTINGS',
-      titleAr: 'الإعدادات والنظام',
-      items: [
-        {
-          id: 'settings',
-          labelEn: 'Tax & Regional Setup',
-          labelAr: 'الضرائب وإعدادات التوطين',
-          icon: Settings
-        },
-        {
-          id: 'master_data',
-          labelEn: 'Master Data Foundation',
-          labelAr: 'البيانات الأساسية الموحدة',
-          icon: Database
-        },
-        {
-          id: 'branding',
-          labelEn: 'Corporate Branding',
-          labelAr: 'الهوية المؤسسية والشعار',
-          icon: Palette
-        },
-        {
-          id: 'onboarding_wizard',
-          labelEn: 'Setup Guide',
-          labelAr: 'معالج التهيئة المؤسسية',
-          icon: Award
-        }
-      ]
-    }
-  ];
-
-  const navCategories = rawCategories.filter(cat => cat.isVisible !== false);
+  const navCategories: NavCategory[] = [
+    { titleEn: 'Workspace', titleAr: 'المساحة', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Workspace').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default })) },
+    { titleEn: 'Sales', titleAr: 'المبيعات', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Sales').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default, badge: feature.module === 'pos' ? 'POS' : undefined, badgeColor: feature.module === 'pos' ? 'bg-[#F28C28] text-slate-950 font-bold' : undefined })) },
+    { titleEn: 'Purchases', titleAr: 'المشتريات', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Purchases').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default })) },
+    { titleEn: 'Inventory', titleAr: 'المخزون', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Inventory').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default })) },
+    { titleEn: 'Finance', titleAr: 'المالية', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Finance').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default })) },
+    { titleEn: 'Operations', titleAr: 'العمليات', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Operations').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default })) },
+    { titleEn: 'Reports', titleAr: 'التقارير', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Reports').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default })) },
+    { titleEn: 'Administration', titleAr: 'الإدارة', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Administration').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default, badge: feature.module === 'workflows' && pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined, badgeColor: feature.module === 'workflows' ? 'bg-rose-500 text-white font-bold' : undefined })) }
+  ].filter(category => category.items.length > 0);
 
   return (
     <aside className="w-64 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-4 hidden md:flex flex-col justify-between select-none overflow-y-auto max-h-[calc(100vh-4.25rem)]">
       <div className="space-y-5">
         {navCategories.map((cat) => {
           const isCollapsed = collapsedCategories[cat.titleEn];
-
           return (
             <div key={cat.titleEn} className="space-y-1">
               <button
@@ -296,10 +120,9 @@ export const Sidebar: React.FC = () => {
 
               {!isCollapsed && (
                 <nav className="space-y-0.5">
-                  {cat.items.filter(item => !item.isFuture).map((item) => {
+                  {cat.items.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeModule === item.id;
-
                     return (
                       <button
                         key={item.id}
@@ -307,44 +130,20 @@ export const Sidebar: React.FC = () => {
                         onClick={() => setActiveModule(item.id)}
                         style={isActive ? {
                           backgroundColor: branding?.primaryColor || '#0B1F3A',
-                          borderColor: `${branding?.accentColor || '#C9A227'}4D`
+                          borderColor: `${branding?.accentColor || '#F28C28'}4D`
                         } : {}}
                         className={`w-full min-h-[38px] flex items-center justify-between rounded-md px-3 py-2 text-xs font-medium transition cursor-pointer ${
-                          isActive
-                            ? 'text-white font-bold border'
-                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                          isActive ? 'text-white font-bold border' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 truncate min-w-0">
-                          <Icon
-                            className="w-4 h-4 shrink-0"
-                            style={isActive ? { color: branding?.accentColor || '#C9A227' } : {}}
-                          />
-                          <span className="truncate text-xs font-semibold">
-                            {isAr ? item.labelAr : item.labelEn}
-                          </span>
+                          <Icon className="w-4 h-4 shrink-0" style={isActive ? { color: branding?.accentColor || '#F28C28' } : {}} />
+                          <span className="truncate text-xs font-semibold">{isAr ? item.labelAr : item.labelEn}</span>
                         </div>
-
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {item.isFuture ? (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                              {isAr ? 'قريباً' : 'Soon'}
-                            </span>
-                          ) : item.badge ? (
-                            <span
-                              className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${item.badgeColor || 'text-white'}`}
-                              style={!item.badgeColor ? { backgroundColor: branding?.accentColor || '#C9A227' } : {}}
-                            >
-                              {item.badge}
-                            </span>
-                          ) : (
-                            isActive && (
-                              <ChevronRight
-                                className="w-3.5 h-3.5 rtl:rotate-180"
-                                style={{ color: branding?.accentColor || '#C9A227' }}
-                              />
-                            )
-                          )}
+                          {item.badge ? (
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${item.badgeColor || 'text-white'}`} style={!item.badgeColor ? { backgroundColor: branding?.accentColor || '#F28C28' } : {}}>{item.badge}</span>
+                          ) : isActive ? <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" style={{ color: branding?.accentColor || '#F28C28' }} /> : null}
                         </div>
                       </button>
                     );
@@ -356,44 +155,16 @@ export const Sidebar: React.FC = () => {
         })}
       </div>
 
-      {/* Footer Branding */}
       <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
         <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 border border-slate-200 dark:border-slate-800 text-xs space-y-1.5">
           <div className="flex items-center justify-between text-slate-900 dark:text-white font-semibold">
             <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" style={{ color: branding?.accentColor || '#C9A227' }} />
-              <span className="font-bold truncate max-w-[140px]">
-                {isAr
-                  ? (branding?.appNameAr || branding?.appName || 'منصة إيه إم للأعمال')
-                  : (branding?.appName || 'AM Business OS')}
-              </span>
+              <Sparkles className="w-3.5 h-3.5" style={{ color: branding?.accentColor || '#F28C28' }} />
+              <span className="font-bold truncate max-w-[140px]">{isAr ? (branding?.appNameAr || branding?.appName || 'منصة إيه إم للأعمال') : (branding?.appName || 'AM Business OS')}</span>
             </span>
-            <span
-              className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md border"
-              style={{
-                color: branding?.accentColor || '#C9A227',
-                backgroundColor: `${branding?.accentColor || '#C9A227'}1A`,
-                borderColor: `${branding?.accentColor || '#C9A227'}33`
-              }}
-            >
-              v2.8.0
-            </span>
+            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md border" style={{ color: branding?.accentColor || '#F28C28', backgroundColor: `${branding?.accentColor || '#F28C28'}1A`, borderColor: `${branding?.accentColor || '#F28C28'}33` }}>v2.8.0</span>
           </div>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">
-            {branding?.tradingName || (isAr
-              ? 'إدارة متكاملة للأعمال والعمليات المالية'
-              : 'Integrated business and financial operations')}
-          </p>
-          {(branding?.showPoweredBy ?? true) && (
-            <div className="text-[9px] text-slate-400 pt-1.5 border-t border-slate-200 dark:border-slate-700/60 space-y-0.5">
-              <div className="font-semibold text-slate-500 dark:text-slate-300">
-                {isAr ? 'منصة إيه إم للأعمال' : 'AM Business Platform'}
-              </div>
-              <div className="text-[8.5px] text-[#C9A227] italic">
-                {isAr ? '«كل قرار ناجح يبدأ برقم صحيح»' : '"Every successful decision begins with an accurate number"'}
-              </div>
-            </div>
-          )}
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">{branding?.tradingName || (isAr ? 'إدارة متكاملة للأعمال والعمليات المالية' : 'Integrated business and financial operations')}</p>
         </div>
       </div>
     </aside>

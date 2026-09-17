@@ -27,7 +27,7 @@ import { CashApplicationHub } from '../billing/CashApplicationHub';
 import { Truck, DollarSign, Layers } from 'lucide-react';
 
 export const SalesView: React.FC = () => {
-  const [domainMode, setDomainMode] = useState<'CASH_APPLICATION' | 'CUSTOMER_BILLING' | 'OUTBOUND_LOGISTICS' | 'ADVANCED_O2C' | 'ENTERPRISE_SALES' | 'ACCOUNTS_RECEIVABLE' | 'SALES_DISTRIBUTION'>('CASH_APPLICATION');
+  const [domainMode, setDomainMode] = useState<'CASH_APPLICATION' | 'CUSTOMER_BILLING' | 'OUTBOUND_LOGISTICS' | 'ADVANCED_O2C' | 'ENTERPRISE_SALES' | 'ACCOUNTS_RECEIVABLE' | 'SALES_DISTRIBUTION'>('SALES_DISTRIBUTION');
   const { lang, triggerReload, reloadTrigger, currentUser } = usePlatform();
   const isAr = lang === 'ar';
 
@@ -193,13 +193,24 @@ export const SalesView: React.FC = () => {
               </p>
             </div>
 
-            <button
-              onClick={() => setIsInvoiceModalOpen(true)}
-              className="btn-am-accent flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-lg shadow-sm cursor-pointer"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>{isAr ? 'إصدار فاتورة مبيعات' : 'Issue Sales Invoice'}</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={() => setDomainMode('ENTERPRISE_SALES')} className="btn-am-secondary flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg shadow-sm cursor-pointer">
+                <FileText className="w-3.5 h-3.5" />
+                <span>{isAr ? 'عرض سعر' : 'New Quotation'}</span>
+              </button>
+              <button onClick={() => setDomainMode('ADVANCED_O2C')} className="btn-am-secondary flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg shadow-sm cursor-pointer">
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>{isAr ? 'طلب بيع' : 'New Sales Order'}</span>
+              </button>
+              <button onClick={() => setIsInvoiceModalOpen(true)} className="btn-am-accent flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-lg shadow-sm cursor-pointer">
+                <PlusCircle className="w-4 h-4" />
+                <span>{isAr ? 'فاتورة' : 'New Invoice'}</span>
+              </button>
+              <button onClick={() => setDomainMode('CASH_APPLICATION')} className="btn-am-secondary flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg shadow-sm cursor-pointer">
+                <Receipt className="w-3.5 h-3.5" />
+                <span>{isAr ? 'نقطة البيع' : 'Open POS'}</span>
+              </button>
+            </div>
           </div>
 
       {/* KPI row */}
