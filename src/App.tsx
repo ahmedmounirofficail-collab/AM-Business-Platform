@@ -155,10 +155,13 @@ const MainLayout: React.FC = () => {
         return <MasterDataWorkspaceView />;
       case 'core':
       case 'settings':
+      case 'configuration_center':
+        return <CorePlatformView initialTab="configEngine" />;
       case 'users_security':
       case 'audit_center':
-      case 'configuration_center':
+        return <CorePlatformView initialTab="audit" />;
       case 'workflows':
+        return <CorePlatformView initialTab="workflows" />;
       case 'documents':
       case 'reports':
         return <ReportsCenterView />;

@@ -33,27 +33,44 @@ interface LoginModalProps {
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
-  const { lang, setLang, tenants, activeTenant, setActiveTenant, platformIdentity, branding } = usePlatform();
+  const { lang, setLang, tenants, activeTenant, setActiveTenant, platformIdentity, branding, login } = usePlatform();
   const isAr = lang === 'ar';
 
   const [email, setEmail] = useState<string>('a.mounir369@gmail.com');
   const [password, setPassword] = useState<string>('••••••••••••');
   const [selectedTenantId, setSelectedTenantId] = useState<string>(activeTenant?.id || 'ten-001');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const t = tenants.find(item => item.id === selectedTenantId);
-    if (t) {
-      setActiveTenant(t);
+    setErrorMsg(null);
+    setLoading(true);
+    try {
+      const passToUse = password === '••••••••••••' ? 'Admin@2026!' : password;
+      const res = await login(email, passToUse);
+      if (!res.success) {
+        setErrorMsg(isAr ? 'بيانات الاعتماد غير صحيحة. يرجى التحقق من البريد وكلمة المرور.' : (res.error || 'Invalid credentials.'));
+        setLoading(false);
+        return;
+      }
+      const t = tenants.find(item => item.id === selectedTenantId);
+      if (t) {
+        setActiveTenant(t);
+      }
+      setSuccessMsg(isAr ? 'تم التحقق بنجاح والدخول إلى المنصة' : 'Authentication confirmed. Welcome to AM ERP.');
+      setTimeout(() => {
+        setSuccessMsg(null);
+        onClose();
+      }, 1000);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Login failed.');
+    } finally {
+      setLoading(false);
     }
-    setSuccessMsg(isAr ? 'تم التحقق بنجاح والدخول إلى المنصة' : 'Authentication confirmed. Welcome to AM ERP.');
-    setTimeout(() => {
-      setSuccessMsg(null);
-      onClose();
-    }, 1200);
   };
 
   return (
@@ -201,14 +218,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
 
+          {/* Error Message */}
+          {errorMsg && (
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-lg text-xs text-rose-700 dark:text-rose-300 font-medium">
+              {errorMsg}
+            </div>
+          )}
+
           {/* Action Button */}
           <button
             type="submit"
-            className="am-focus-ring w-full py-3 px-4 rounded-lg text-xs font-bold text-white shadow-md transition flex items-center justify-center gap-2 cursor-pointer mt-2"
+            disabled={loading}
+            className="am-focus-ring w-full py-3 px-4 rounded-lg text-xs font-bold text-white shadow-md transition flex items-center justify-center gap-2 cursor-pointer mt-2 disabled:opacity-50"
             style={{ backgroundColor: '#0B1F3A' }}
             id="login-submit-btn"
           >
-            <span>{isAr ? 'تسجيل الدخول للمنصة' : 'Authenticate & Enter AM ERP'}</span>
+            <span>{loading ? (isAr ? 'جاري التحقق...' : 'Authenticating...') : (isAr ? 'تسجيل الدخول للمنصة' : 'Authenticate & Enter AM ERP')}</span>
             <ArrowRight className="w-4 h-4 text-[var(--brand-gold)] rtl:rotate-180" />
           </button>
 

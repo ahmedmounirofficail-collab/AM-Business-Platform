@@ -77,14 +77,36 @@ import {
 } from '../types';
 
 
+const TOKEN_STORAGE_KEY = 'am_erp_auth_token';
+
 export class ApiClient {
-  private static token: string | null = null;
+  private static token: string | null = typeof window !== 'undefined' ? (() => {
+    try {
+      return localStorage.getItem(TOKEN_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  })() : null;
 
   public static setToken(token: string | null): void {
     this.token = token;
+    if (typeof window !== 'undefined') {
+      try {
+        if (token) {
+          localStorage.setItem(TOKEN_STORAGE_KEY, token);
+        } else {
+          localStorage.removeItem(TOKEN_STORAGE_KEY);
+        }
+      } catch {}
+    }
   }
 
   public static getToken(): string | null {
+    if (!this.token && typeof window !== 'undefined') {
+      try {
+        this.token = localStorage.getItem(TOKEN_STORAGE_KEY);
+      } catch {}
+    }
     return this.token;
   }
 
@@ -94,8 +116,9 @@ export class ApiClient {
       ...((options?.headers as Record<string, string>) || {}),
     };
 
-    if (this.token && !headers['Authorization'] && !headers['authorization']) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    const currentToken = this.getToken();
+    if (currentToken && !headers['Authorization'] && !headers['authorization']) {
+      headers['Authorization'] = `Bearer ${currentToken}`;
     }
 
     try {
@@ -104,6 +127,10 @@ export class ApiClient {
         headers,
       });
       if (!res.ok) {
+        if (res.status === 401) {
+          // Token is invalid or expired: clear local token
+          this.setToken(null);
+        }
         const errData = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(errData.error || `HTTP ${res.status}`);
       }

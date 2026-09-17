@@ -91,8 +91,8 @@ export const Sidebar: React.FC = () => {
 
   const rawCategories: (NavCategory & { isVisible?: boolean })[] = [
     {
-      titleEn: 'WORKSPACE',
-      titleAr: 'مساحة العمل',
+      titleEn: 'MAIN',
+      titleAr: 'الرئيسية',
       items: [
         {
           id: 'dashboard',
@@ -107,29 +107,17 @@ export const Sidebar: React.FC = () => {
           icon: Bot,
           badge: anomaliesCount > 0 ? anomaliesCount : undefined,
           badgeColor: 'bg-amber-500 text-white'
-        },
-        {
-          id: 'bi_analytics',
-          labelEn: 'Business Analytics',
-          labelAr: 'الذكاء المالي والتحليلات',
-          icon: PieChart
-        },
-        {
-          id: 'reports',
-          labelEn: 'Reports',
-          labelAr: 'مركز التقارير التنفيذية',
-          icon: FileSpreadsheet
         }
       ]
     },
     {
-      titleEn: 'SALES & DISTRIBUTION',
-      titleAr: 'المبيعات والتوزيع',
+      titleEn: 'SALES & CUSTOMERS',
+      titleAr: 'المبيعات والعملاء',
       items: [
         {
           id: 'sales',
-          labelEn: 'Sales & Customers',
-          labelAr: 'المبيعات والعملاء والفواتير',
+          labelEn: 'Sales & Invoices',
+          labelAr: 'المبيعات والفواتير',
           icon: ShoppingBag
         },
         {
@@ -138,43 +126,73 @@ export const Sidebar: React.FC = () => {
           labelAr: 'نقاط البيع والتجزئة',
           icon: Store,
           badge: 'POS',
-          badgeColor: 'bg-[#CAAF7D] text-slate-950 font-black'
-        },
-        {
-          id: 'documents',
-          labelEn: 'Documents',
-          labelAr: 'أرشيف المستندات التجارية',
-          icon: FolderGit2
+          badgeColor: 'bg-[#C9A227] text-slate-950 font-bold'
         }
       ]
     },
     {
-      titleEn: 'PROCUREMENT & SUPPLY',
-      titleAr: 'المشتريات والمخازن',
+      titleEn: 'PURCHASING & VENDORS',
+      titleAr: 'المشتريات والموردون',
       items: [
         {
           id: 'purchasing',
-          labelEn: 'Purchasing',
+          labelEn: 'Purchasing & Bills',
           labelAr: 'المشتريات وفواتير الموردين',
           icon: Truck
-        },
+        }
+      ]
+    },
+    {
+      titleEn: 'INVENTORY & WAREHOUSES',
+      titleAr: 'المخزون والمستودعات',
+      items: [
         {
           id: 'inventory',
-          labelEn: 'Inventory',
+          labelEn: 'Inventory Management',
           labelAr: 'إدارة المخازن والمستودعات',
           icon: Package
         }
       ]
     },
     {
-      titleEn: 'MANUFACTURING & PRODUCTION',
+      titleEn: 'TREASURY & BANKING',
+      titleAr: 'الخزينة والبنوك',
+      items: [
+        {
+          id: 'banking',
+          labelEn: 'Treasury & Cash',
+          labelAr: 'الخزينة والحسابات البنكية',
+          icon: Landmark
+        }
+      ]
+    },
+    {
+      titleEn: 'ACCOUNTING & FINANCE',
+      titleAr: 'الحسابات العامة',
+      items: [
+        {
+          id: 'accounting',
+          labelEn: 'General Ledger',
+          labelAr: 'الأستاذ العام ودليل الحسابات',
+          icon: Calculator
+        },
+        {
+          id: 'fixed_assets',
+          labelEn: 'Fixed Assets',
+          labelAr: 'الأصول الثابتة والإهلاك',
+          icon: Building2
+        }
+      ]
+    },
+    {
+      titleEn: 'MANUFACTURING',
       titleAr: 'التصنيع والإنتاج',
       isVisible: isManufacturingEnabled,
       items: [
         {
           id: 'manufacturing',
-          labelEn: 'Garment & Assembly Operations',
-          labelAr: 'إدارة التصنيع والملابس',
+          labelEn: 'Work Orders & Assembly',
+          labelAr: 'أوامر التشغيل وخطوط الإنتاج',
           icon: Factory,
           badge: isAr ? 'إنتاج' : 'MFG',
           badgeColor: 'bg-indigo-600 text-white'
@@ -182,43 +200,37 @@ export const Sidebar: React.FC = () => {
       ]
     },
     {
-      titleEn: 'FINANCE & TREASURY',
-      titleAr: 'المالية والخزينة',
+      titleEn: 'ANALYTICS & REPORTS',
+      titleAr: 'التحليل والتقارير',
       items: [
         {
-          id: 'accounting',
-          labelEn: 'Accounting',
-          labelAr: 'الأستاذ العام ودليل الحسابات',
-          icon: Calculator
+          id: 'bi_analytics',
+          labelEn: 'Analytics & Insights',
+          labelAr: 'التحليل والتقارير الذكية',
+          icon: PieChart
         },
         {
-          id: 'banking',
-          labelEn: 'Banking & Cash',
-          labelAr: 'الحسابات البنكية والخزينة',
-          icon: Landmark
-        },
-        {
-          id: 'fixed_assets',
-          labelEn: 'Fixed Assets',
-          labelAr: 'الأصول الثابتة والإهلاك',
-          icon: Building2
-        },
-        {
-          id: 'hr',
-          labelEn: 'People & Payroll',
-          labelAr: 'الموارد البشرية ومسير الرواتب',
-          icon: UserCheck
+          id: 'reports',
+          labelEn: 'Financial Reports',
+          labelAr: 'مركز التقارير التنفيذية',
+          icon: FileSpreadsheet
         }
       ]
     },
     {
-      titleEn: 'GOVERNANCE & COMPLIANCE',
-      titleAr: 'الحوكمة والامتثال',
+      titleEn: 'USERS & GOVERNANCE',
+      titleAr: 'المستخدمون والحوكمة',
       items: [
         {
+          id: 'users_security',
+          labelEn: 'Users & Permissions',
+          labelAr: 'المستخدمون والصلاحيات',
+          icon: ShieldCheck
+        },
+        {
           id: 'workflows',
-          labelEn: 'Approvals',
-          labelAr: 'دورات الاعتماد والتوقيع المزدوج',
+          labelEn: 'Approval Workflows',
+          labelAr: 'دورات الاعتماد والتواقيع',
           icon: Workflow,
           badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined,
           badgeColor: 'bg-rose-500 text-white font-bold'
@@ -226,120 +238,38 @@ export const Sidebar: React.FC = () => {
         {
           id: 'audit_center',
           labelEn: 'Audit Trail',
-          labelAr: 'مركز التدقيق وسجل الحركات',
+          labelAr: 'سجل التدقيق والعمليات',
           icon: ClipboardList
-        },
-        {
-          id: 'users_security',
-          labelEn: 'Users & Access',
-          labelAr: 'المستخدمون والصلاحيات',
-          icon: ShieldCheck
         }
       ]
     },
     {
-      titleEn: 'ADMINISTRATION & SYSTEM',
-      titleAr: 'الإدارة والنظام',
+      titleEn: 'SYSTEM & SETTINGS',
+      titleAr: 'الإعدادات والنظام',
       items: [
         {
-          id: 'master_data',
-          labelEn: 'Master Data',
-          labelAr: 'البيانات الأساسية الموحدة',
-          icon: Database
-        },
-        {
           id: 'settings',
-          labelEn: 'Taxes & Regional Settings',
+          labelEn: 'Tax & Regional Setup',
           labelAr: 'الضرائب وإعدادات التوطين',
           icon: Settings
         },
         {
-          id: 'configuration_center',
-          labelEn: 'Financial Setup',
-          labelAr: 'مركز التهيئة والسنوات المالية',
-          icon: Sliders
+          id: 'master_data',
+          labelEn: 'Master Data Foundation',
+          labelAr: 'البيانات الأساسية الموحدة',
+          icon: Database
         },
         {
           id: 'branding',
-          labelEn: 'Branding',
+          labelEn: 'Corporate Branding',
           labelAr: 'الهوية المؤسسية والشعار',
           icon: Palette
         },
         {
-          id: 'platform_readiness',
-          labelEn: 'System status',
-          labelAr: 'حالة النظام',
-          icon: ShieldCheck,
-          badge: '100%',
-          badgeColor: 'bg-emerald-600 text-white font-bold'
-        },
-        {
           id: 'onboarding_wizard',
           labelEn: 'Setup Guide',
-          labelAr: 'معالج التهيئة الأولية',
+          labelAr: 'معالج التهيئة المؤسسية',
           icon: Award
-        }
-      ]
-    },
-    {
-      titleEn: 'EXTENSIONS & SERVICES',
-      titleAr: 'الوحدات الممتدة والخدمات',
-      items: [
-        {
-          id: 'projects',
-          labelEn: 'Project Costing & WBS',
-          labelAr: 'إدارة المشاريع والتكاليف',
-          icon: Briefcase,
-          isFuture: true
-        },
-        {
-          id: 'maintenance',
-          labelEn: 'Plant & Equipment Maintenance',
-          labelAr: 'الصيانة الوقائية والمعدات',
-          icon: Wrench,
-          isFuture: true
-        },
-        {
-          id: 'rental',
-          labelEn: 'Equipment & Asset Rental',
-          labelAr: 'إدارة التأجير والعقود',
-          icon: KeyRound,
-          isFuture: true
-        },
-        {
-          id: 'fleet',
-          labelEn: 'Fleet & Dispatch Logistics',
-          labelAr: 'إدارة الأسطول واللوجستيات',
-          icon: Car,
-          isFuture: true
-        },
-        {
-          id: 'service_management',
-          labelEn: 'Field & Customer Service',
-          labelAr: 'إدارة الخدمات الميدانية',
-          icon: Headphones,
-          isFuture: true
-        },
-        {
-          id: 'quality_management',
-          labelEn: 'Quality Assurance & ISO',
-          labelAr: 'إدارة الجودة الشاملة',
-          icon: CheckCircle2,
-          isFuture: true
-        },
-        {
-          id: 'production_planning',
-          labelEn: 'Advanced MPS & MRP Planning',
-          labelAr: 'تخطيط الاحتياجات (MRP/MPS)',
-          icon: Cpu,
-          isFuture: true
-        },
-        {
-          id: 'ecommerce',
-          labelEn: 'B2B & Omnichannel Commerce',
-          labelAr: 'التجارة الإلكترونية المترابطة',
-          icon: Globe,
-          isFuture: true
         }
       ]
     }
@@ -376,8 +306,8 @@ export const Sidebar: React.FC = () => {
                         type="button"
                         onClick={() => setActiveModule(item.id)}
                         style={isActive ? {
-                          backgroundColor: branding?.primaryColor || '#0B1D36',
-                          borderColor: `${branding?.accentColor || '#CAAF7D'}4D`
+                          backgroundColor: branding?.primaryColor || '#0B1F3A',
+                          borderColor: `${branding?.accentColor || '#C9A227'}4D`
                         } : {}}
                         className={`w-full min-h-[38px] flex items-center justify-between rounded-md px-3 py-2 text-xs font-medium transition cursor-pointer ${
                           isActive
@@ -388,7 +318,7 @@ export const Sidebar: React.FC = () => {
                         <div className="flex items-center gap-2.5 truncate min-w-0">
                           <Icon
                             className="w-4 h-4 shrink-0"
-                            style={isActive ? { color: branding?.accentColor || '#CAAF7D' } : {}}
+                            style={isActive ? { color: branding?.accentColor || '#C9A227' } : {}}
                           />
                           <span className="truncate text-xs font-semibold">
                             {isAr ? item.labelAr : item.labelEn}
@@ -403,7 +333,7 @@ export const Sidebar: React.FC = () => {
                           ) : item.badge ? (
                             <span
                               className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${item.badgeColor || 'text-white'}`}
-                              style={!item.badgeColor ? { backgroundColor: branding?.accentColor || '#CAAF7D' } : {}}
+                              style={!item.badgeColor ? { backgroundColor: branding?.accentColor || '#C9A227' } : {}}
                             >
                               {item.badge}
                             </span>
@@ -411,7 +341,7 @@ export const Sidebar: React.FC = () => {
                             isActive && (
                               <ChevronRight
                                 className="w-3.5 h-3.5 rtl:rotate-180"
-                                style={{ color: branding?.accentColor || '#CAAF7D' }}
+                                style={{ color: branding?.accentColor || '#C9A227' }}
                               />
                             )
                           )}
@@ -431,7 +361,7 @@ export const Sidebar: React.FC = () => {
         <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 border border-slate-200 dark:border-slate-800 text-xs space-y-1.5">
           <div className="flex items-center justify-between text-slate-900 dark:text-white font-semibold">
             <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" style={{ color: branding?.accentColor || '#CAAF7D' }} />
+              <Sparkles className="w-3.5 h-3.5" style={{ color: branding?.accentColor || '#C9A227' }} />
               <span className="font-bold truncate max-w-[140px]">
                 {isAr
                   ? (branding?.appNameAr || branding?.appName || 'منصة إيه إم للأعمال')
@@ -441,9 +371,9 @@ export const Sidebar: React.FC = () => {
             <span
               className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md border"
               style={{
-                color: branding?.accentColor || '#CAAF7D',
-                backgroundColor: `${branding?.accentColor || '#CAAF7D'}1A`,
-                borderColor: `${branding?.accentColor || '#CAAF7D'}33`
+                color: branding?.accentColor || '#C9A227',
+                backgroundColor: `${branding?.accentColor || '#C9A227'}1A`,
+                borderColor: `${branding?.accentColor || '#C9A227'}33`
               }}
             >
               v2.8.0
@@ -459,7 +389,7 @@ export const Sidebar: React.FC = () => {
               <div className="font-semibold text-slate-500 dark:text-slate-300">
                 {isAr ? 'منصة إيه إم للأعمال' : 'AM Business Platform'}
               </div>
-              <div className="text-[8.5px] text-[#CAAF7D] italic">
+              <div className="text-[8.5px] text-[#C9A227] italic">
                 {isAr ? '«كل قرار ناجح يبدأ برقم صحيح»' : '"Every successful decision begins with an accurate number"'}
               </div>
             </div>

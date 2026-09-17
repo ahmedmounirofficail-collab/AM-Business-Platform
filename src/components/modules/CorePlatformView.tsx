@@ -60,11 +60,21 @@ import {
 import { CompanyModal } from './CompanyModal';
 import { PlatformIntegrationView } from './PlatformIntegrationView';
 
-export const CorePlatformView: React.FC = () => {
+export interface CorePlatformViewProps {
+  initialTab?: 'configEngine' | 'masterData' | 'numbering' | 'workflows' | 'audit' | 'tenants' | 'platformIntegration';
+}
+
+export const CorePlatformView: React.FC<CorePlatformViewProps> = ({ initialTab = 'configEngine' }) => {
   const { lang, activeTenant, triggerReload, reloadTrigger, setActiveModule } = usePlatform();
   const isAr = lang === 'ar';
 
-  const [activeTab, setActiveTab] = useState<'configEngine' | 'masterData' | 'numbering' | 'workflows' | 'audit' | 'tenants' | 'platformIntegration'>('configEngine');
+  const [activeTab, setActiveTab] = useState<'configEngine' | 'masterData' | 'numbering' | 'workflows' | 'audit' | 'tenants' | 'platformIntegration'>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);

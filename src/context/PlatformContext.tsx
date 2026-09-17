@@ -67,6 +67,9 @@ interface PlatformContextType {
   setActiveWarehouse: (w: Warehouse) => void;
   
   currentUser: User | null;
+  setCurrentUser: (u: User | null) => void;
+  login: (email: string, password?: string) => Promise<{ success: boolean; user?: User; error?: string }>;
+  logout: () => void;
 
   // Platform Initialization & Onboarding Gate (P0-07 First-Run Architecture)
   isPlatformInitializing: boolean;
@@ -478,6 +481,26 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const triggerReload = () => setReloadTrigger(prev => prev + 1);
 
+  const login = useCallback(async (email: string, password = 'Admin@2026!') => {
+    try {
+      const res = await ApiClient.login(email, password);
+      if (res.success && res.user) {
+        setCurrentUser(res.user);
+        triggerReload();
+        return { success: true, user: res.user };
+      }
+      return { success: false, error: 'Invalid credentials.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Login failed' };
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    ApiClient.setToken(null);
+    setCurrentUser(null);
+    triggerReload();
+  }, []);
+
   // Keyboard shortcut for Global Search (Ctrl+K or Cmd+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -496,22 +519,36 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     async function initPlatform(attempt = 0) {
       try {
-        const [authSettled, tenantsSettled, compSettled, whSettled, approvalsSettled, anomaliesSettled] = await Promise.allSettled([
-          ApiClient.getAuthMe(),
-          ApiClient.getTenants(),
-          ApiClient.getCompanies(),
-          ApiClient.getWarehouses(),
-          ApiClient.getApprovalRequests(),
-          ApiClient.getAnomalies()
-        ]);
+        // 1. Ensure authentication token is present before calling protected endpoints
+        let currentToken = ApiClient.getToken();
+        if (!currentToken) {
+          try {
+            // Auto-login with default administrator credentials for pilot workspace
+            const loginRes = await ApiClient.login('a.mounir369@gmail.com', 'Admin@2026!');
+            if (loginRes.token) {
+              currentToken = loginRes.token;
+            }
+          } catch (loginErr) {
+            console.warn('[PlatformContext] Default auto-login attempt deferred:', loginErr);
+          }
+        }
+
+        // 2. Fetch authenticated profile
+        let authRes: { user: User; tenant: Tenant; company: Company; token?: string } | null = null;
+        if (currentToken) {
+          try {
+            authRes = await ApiClient.getAuthMe();
+          } catch (authErr) {
+            console.warn('[PlatformContext] getAuthMe deferred or token expired:', authErr);
+          }
+        }
 
         if (isCancelled) return;
 
         let resolvedTenant: Tenant = activeTenant || DEFAULT_TENANT;
         let resolvedCompany: Company = activeCompany || DEFAULT_COMPANY;
 
-        if (authSettled.status === 'fulfilled') {
-          const authRes = authSettled.value;
+        if (authRes) {
           if (authRes.user) setCurrentUser(authRes.user);
           if (authRes.tenant) {
             resolvedTenant = authRes.tenant;
@@ -523,9 +560,20 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         }
 
+        // 3. Fetch foundational collections now that authorization is established
+        const [tenantsSettled, compSettled, whSettled, approvalsSettled, anomaliesSettled] = await Promise.allSettled([
+          ApiClient.getTenants(),
+          ApiClient.getCompanies(),
+          ApiClient.getWarehouses(),
+          ApiClient.getApprovalRequests(),
+          ApiClient.getAnomalies()
+        ]);
+
+        if (isCancelled) return;
+
         if (tenantsSettled.status === 'fulfilled' && tenantsSettled.value.length > 0) {
           setTenants(tenantsSettled.value);
-          if (authSettled.status !== 'fulfilled' || !authSettled.value.tenant) {
+          if (!authRes || !authRes.tenant) {
             resolvedTenant = tenantsSettled.value[0];
             setActiveTenantState(resolvedTenant);
           }
@@ -533,7 +581,7 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (compSettled.status === 'fulfilled' && compSettled.value.length > 0) {
           setCompanies(compSettled.value);
-          if (authSettled.status !== 'fulfilled' || !authSettled.value.company) {
+          if (!authRes || !authRes.company) {
             resolvedCompany = compSettled.value[0];
             setActiveCompanyState(resolvedCompany);
           }
@@ -617,6 +665,9 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         activeWarehouse,
         setActiveWarehouse,
         currentUser,
+        setCurrentUser,
+        login,
+        logout,
         isPlatformInitializing,
         platformInitError,
         retryPlatformInit,

@@ -355,15 +355,15 @@ export const ManufacturingManagementView: React.FC = () => {
 
         setTestResults({
           suites: [
-            { name: 'Phase 3.2D-01: Discrete BOM & MRP', passed: res32D01.passed, total: res32D01.total },
-            { name: 'Phase 3.2D-02: Shop Floor MES & QM', passed: res32D02.passed, total: res32D02.total },
-            { name: 'Phase 3.2D-03: Costing & EAM Maintenance', passed: res32D03.passed, total: res32D03.total },
-            { name: 'Phase 3.2D-04: Process, APS & Kanban', passed: res32D04.passed, total: res32D04.total },
-            { name: 'Phase 3.2D-05: PLM, CTO/ATO, Recalls & Carbon', passed: res32D05.passed, total: res32D05.total, items: res32D05.results },
-            { name: 'Phase 3.2D-06: Tooling, eBR & OEE Intelligence', passed: res32D06.passed, total: res32D06.total, items: res32D06.results },
-            { name: 'Phase 3.2D-07: Repetitive, Reman & Andon', passed: res32D07.passed, total: res32D07.total, items: res32D07.results },
-            { name: 'Phase 3.2D-08: Yield, Shift Handover & SPC', passed: res32D08.passed, total: res32D08.total, items: res32D08.results },
-            { name: 'Phase 3.2D-09: Co-Products, Genealogy, ECO & Disassembly', passed: res32D09.passed, total: res32D09.total, items: res32D09.results }
+            { name: 'Discrete BOM & Materials Planning (MRP)', passed: res32D01.passed, total: res32D01.total },
+            { name: 'Shop Floor Execution (MES) & Quality Control', passed: res32D02.passed, total: res32D02.total },
+            { name: 'Production Costing & Maintenance (EAM)', passed: res32D03.passed, total: res32D03.total },
+            { name: 'Continuous Process, APS Scheduling & Kanban', passed: res32D04.passed, total: res32D04.total },
+            { name: 'PLM, CTO/ATO Configurations & Recalls', passed: res32D05.passed, total: res32D05.total, items: res32D05.results },
+            { name: 'Tooling Calibration, eBR & OEE Intelligence', passed: res32D06.passed, total: res32D06.total, items: res32D06.results },
+            { name: 'Repetitive Mfg, Remanufacturing & Andon', passed: res32D07.passed, total: res32D07.total, items: res32D07.results },
+            { name: 'Yield Analytics, Shift Handover & SPC Control', passed: res32D08.passed, total: res32D08.total, items: res32D08.results },
+            { name: 'Co-Products, Batch Genealogy & ECO Engineering', passed: res32D09.passed, total: res32D09.total, items: res32D09.results }
           ],
           totalPassed: res32D01.passed + res32D02.passed + res32D03.passed + res32D04.passed + res32D05.passed + res32D06.passed + res32D07.passed + res32D08.passed + res32D09.passed,
           grandTotal: res32D01.total + res32D02.total + res32D03.total + res32D04.total + res32D05.total + res32D06.total + res32D07.total + res32D08.total + res32D09.total
@@ -380,15 +380,15 @@ export const ManufacturingManagementView: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
         <div>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-indigo-600 text-white shadow-md">
+            <div className="p-2.5 rounded-xl bg-brand-navy text-white shadow-md">
               <Factory className="w-6 h-6" />
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Manufacturing & PLM Command Center
+                Manufacturing Operations Center
               </h1>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Phase 3.2D Unified Engine: Repetitive Mfg, Circular Remanufacturing, Potency Balancing & Andon Orchestration
+                Production Execution, Work Orders, Quality Control & Resource Orchestration
               </p>
             </div>
           </div>
@@ -398,17 +398,17 @@ export const ManufacturingManagementView: React.FC = () => {
           <button
             onClick={handleRunAllSuites}
             disabled={isRunningTests}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-brand-navy hover:bg-brand-navy-light rounded-lg shadow transition-colors disabled:opacity-50"
           >
             {isRunningTests ? (
               <>
                 <RotateCcw className="w-4 h-4 animate-spin" />
-                <span>Running Suites...</span>
+                <span>Running Checks...</span>
               </>
             ) : (
               <>
                 <Play className="w-4 h-4" />
-                <span>Run Quality Gate (3.2D)</span>
+                <span>Run Process Validation</span>
               </>
             )}
           </button>
@@ -423,11 +423,11 @@ export const ManufacturingManagementView: React.FC = () => {
           { id: 'deviations', label: 'Engineering Deviations', icon: FileCheck2 },
           { id: 'recalls', label: 'Recall & Containment', icon: AlertTriangle },
           { id: 'sustainability', label: 'Carbon & Energy (ESG)', icon: Leaf },
-          { id: 'toolingEbr', label: 'Tooling, eBR & OEE (3.2D-06)', icon: Wrench },
-          { id: 'remanAndon', label: 'Repetitive, Reman & Andon (3.2D-07)', icon: Boxes },
-          { id: 'yieldSpcShift', label: 'Yield, SPC & Shift Handover (3.2D-08)', icon: Scale },
-          { id: 'genealogyEco', label: 'Genealogy, ECO & Disassembly (3.2D-09)', icon: GitFork },
-          { id: 'tests', label: 'Quality Hardening Suite', icon: ShieldCheck }
+          { id: 'toolingEbr', label: 'Tooling, eBR & OEE Intelligence', icon: Wrench },
+          { id: 'remanAndon', label: 'Repetitive Mfg & Andon', icon: Boxes },
+          { id: 'yieldSpcShift', label: 'Yield, SPC & Shift Handover', icon: Scale },
+          { id: 'genealogyEco', label: 'Batch Genealogy & ECO', icon: GitFork },
+          { id: 'tests', label: 'Process Validation Checks', icon: ShieldCheck }
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -942,8 +942,8 @@ export const ManufacturingManagementView: React.FC = () => {
                   Stroke/cycle wear increment, calibration lockout protection, and decoupled amortization accounting.
                 </p>
               </div>
-              <span className="px-3 py-1 text-xs font-bold rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
-                Phase 3.2D-06 Verified
+              <span className="px-3 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                Calibrated & Operational
               </span>
             </div>
 
@@ -1635,19 +1635,19 @@ export const ManufacturingManagementView: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Manufacturing Track Hardening Suites (Phases 3.2D-01 → 3.2D-09)
+                  Operational Quality & Process Validation
                 </h2>
                 <p className="text-sm text-slate-500">
-                  Execute the deterministic hardening tests verifying all discrete, process, MES, PLM, Tooling/eBR, Repetitive/Reman, Yield/SPC/Shift Handover, and Genealogy/ECO/Disassembly capabilities.
+                  Execute systematic verification across all discrete, process, MES, PLM, Tooling/eBR, Repetitive/Reman, and Batch Genealogy capabilities.
                 </p>
               </div>
               <button
                 onClick={handleRunAllSuites}
                 disabled={isRunningTests}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-navy hover:bg-brand-navy-light rounded-lg shadow transition-colors disabled:opacity-50"
               >
                 {isRunningTests ? <RotateCcw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                <span>Execute Complete 3.2D Regression</span>
+                <span>Run Process Validation</span>
               </button>
             </div>
 
@@ -1658,10 +1658,10 @@ export const ManufacturingManagementView: React.FC = () => {
                     <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                     <div>
                       <div className="text-base font-bold text-emerald-900 dark:text-emerald-200">
-                        100% Quality Gate Passed
+                        Operational Quality Gate Passed
                       </div>
                       <div className="text-xs text-emerald-700 dark:text-emerald-400">
-                        All 8 manufacturing phases verified green ({testResults.totalPassed} / {testResults.grandTotal} tests)
+                        All manufacturing domains verified green ({testResults.totalPassed} / {testResults.grandTotal} checks)
                       </div>
                     </div>
                   </div>
@@ -1685,7 +1685,7 @@ export const ManufacturingManagementView: React.FC = () => {
                 {testResults.suites[8]?.items && (
                   <div className="mt-4 space-y-2">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Phase 3.2D-09 Co-Products, Batch Genealogy, ECO & Disassembly Hardening Output (35 Tests):
+                      Co-Products, Batch Genealogy, ECO & Disassembly Validation Output ({testResults.suites[8].items.length} checks):
                     </h4>
                     <div className="max-h-60 overflow-y-auto space-y-1.5 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-mono">
                       {testResults.suites[8].items.map((t: any) => (

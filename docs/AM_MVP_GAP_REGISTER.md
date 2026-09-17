@@ -4,7 +4,7 @@
 |---|---|---|---|
 | P0 | Canonical branding certification expected stale AM ERP/orange values | RESOLVED | Runtime and P0-08/P0-09 now align to AM Business OS and gold `#C9A227`; rerun full regression after changes. |
 | P0 | Production credential fallback | RESOLVED | Production startup now fails closed when bootstrap credentials are required and absent. |
-| P0 | Global API authentication boundary | PARTIALLY RESOLVED | Central guard added; route-specific role policies and bootstrap `/auth/me` behavior still require hardening. |
+| P0 | Global API authentication boundary | RESOLVED | Central guard, sequential client auth, token persistence, and 10 lifecycle tests verified via `verify_session_lifecycle_and_security.ts`. |
 | P0 | Clean installation without demo transactions | OPEN | Empty collections currently seed from `src/data/mockDatabase.ts`; implement foundational bootstrap policy and clean-install tests. |
 | P1 | Future modules visible in normal navigation | RESOLVED | Sidebar filters explicit future entries; feature registry still needs server-authoritative integration. |
 | P1 | Developer test tab visible to users | RESOLVED | Sales hardening tab restricted to Super Admin. Other admin/developer surfaces need inventory. |

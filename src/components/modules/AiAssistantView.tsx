@@ -9,7 +9,7 @@ import { usePlatform } from '../../context/PlatformContext';
 import { ApiClient } from '../../services/apiClient';
 
 export const AiAssistantView: React.FC = () => {
-  const { lang, reloadTrigger } = usePlatform();
+  const { lang, reloadTrigger, currentUser } = usePlatform();
   const isAr = lang === 'ar';
 
   const [prompt, setPrompt] = useState('');
@@ -26,15 +26,18 @@ export const AiAssistantView: React.FC = () => {
 
   useEffect(() => {
     async function loadAnomalies() {
+      if (!ApiClient.getToken()) {
+        return;
+      }
       try {
         const res = await ApiClient.getAnomalies();
         setAnomalies(res);
-      } catch (err) {
-        console.error('Failed loading anomalies:', err);
+      } catch (err: any) {
+        console.warn('Failed loading anomalies:', err?.message || err);
       }
     }
     loadAnomalies();
-  }, [reloadTrigger]);
+  }, [reloadTrigger, currentUser]);
 
   const handleSendMessage = async () => {
     if (!prompt.trim() || loading) return;

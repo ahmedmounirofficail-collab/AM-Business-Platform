@@ -1698,6 +1698,25 @@ function initializePilotPersistence(): void {
     postingRules = initDurableCollection('postingRules', postingRules, pilotDb);
     industryProfiles = initDurableCollection('industryProfiles', industryProfiles, pilotDb);
     users = initDurableCollection('users', users, pilotDb);
+    // Ensure initial system users, tenants, and companies exist for platform operation
+    for (const initialUser of INITIAL_USERS) {
+      if (!users.some(u => u.id === initialUser.id || u.email.toLowerCase() === initialUser.email.toLowerCase())) {
+        users.push({ ...initialUser });
+        persistEntity('users', initialUser, pilotDb);
+      }
+    }
+    for (const initialTenant of INITIAL_TENANTS) {
+      if (!tenants.some(t => t.id === initialTenant.id)) {
+        tenants.push({ ...initialTenant });
+        persistEntity('tenants', initialTenant, pilotDb);
+      }
+    }
+    for (const initialCompany of INITIAL_COMPANIES) {
+      if (!companies.some(c => c.id === initialCompany.id)) {
+        companies.push({ ...initialCompany });
+        persistEntity('companies', initialCompany, pilotDb);
+      }
+    }
     if (process.env.NODE_ENV === 'production' && users.length === 0) {
       throw new Error(
         'PRODUCTION BOOTSTRAP REQUIRED: no users exist in the configured database. ' +

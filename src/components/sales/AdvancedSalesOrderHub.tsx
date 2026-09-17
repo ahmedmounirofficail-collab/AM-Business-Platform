@@ -217,10 +217,10 @@ export const AdvancedSalesOrderHub: React.FC = () => {
       const res = await ApiClient.runPhase32C01HardeningSuite();
       if (res.success && res.report) {
         setHardeningReport(res.report);
-        showNotification('success', `Phase 3.2C-01 Hardening: ${res.report.passedCount}/${res.report.totalTests} Scenarios Passed (${res.report.verdict})!`);
+        showNotification('success', `Verification Check: ${res.report.passedCount}/${res.report.totalTests} Scenarios Passed (${res.report.verdict})!`);
       }
     } catch (err: any) {
-      showNotification('error', err.message || 'Failed to run hardening suite');
+      showNotification('error', err.message || 'Failed to run verification suite');
     } finally {
       setLoading(false);
     }
@@ -233,7 +233,7 @@ export const AdvancedSalesOrderHub: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-1 text-xs font-semibold bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30">
-              Phase 3.2C-01 Verified
+              Enterprise Order Management
             </span>
             <span className="text-xs text-slate-400 font-mono">Order-to-Cash & Commercial SCM</span>
           </div>
@@ -341,7 +341,7 @@ export const AdvancedSalesOrderHub: React.FC = () => {
           <p className="text-2xl font-bold text-emerald-400 mt-2">
             {hardeningReport ? `${hardeningReport.passedCount}/${hardeningReport.totalTests}` : '30/30'}
           </p>
-          <span className="text-xs text-emerald-500/80">Phase 3.2C-01 PASS</span>
+          <span className="text-xs text-emerald-500/80">Verification: Optimal</span>
         </div>
       </div>
 
