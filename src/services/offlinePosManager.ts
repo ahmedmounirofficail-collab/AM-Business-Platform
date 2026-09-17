@@ -29,7 +29,9 @@ export interface OfflineSyncSummary {
 
 export class OfflinePosManager {
   private static instance: OfflinePosManager | null = null;
-  private dbService = OfflinePosIndexedDbService.getInstance();
+  private get dbService(): OfflinePosIndexedDbService {
+    return OfflinePosIndexedDbService.getInstance();
+  }
   private sequenceCounter = 1;
 
   public static getInstance(): OfflinePosManager {

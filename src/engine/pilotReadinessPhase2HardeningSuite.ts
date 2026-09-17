@@ -43,13 +43,17 @@ export class PilotReadinessPhase2HardeningSuite {
     // Clean up any stale test database
     try {
       if (fs.existsSync(testDbPath)) fs.unlinkSync(testDbPath);
+      if (fs.existsSync(`${testDbPath}-wal`)) fs.unlinkSync(`${testDbPath}-wal`);
+      if (fs.existsSync(`${testDbPath}-shm`)) fs.unlinkSync(`${testDbPath}-shm`);
     } catch {}
 
     const pilotDb = PilotDatabaseService.createIsolated(testDbPath);
+    OfflinePosIndexedDbService.resetInstance();
     const dbService = OfflinePosIndexedDbService.getInstance();
     await dbService.clearAll();
 
     // Reset manager instance
+    OfflinePosManager.resetInstance();
     const posManager = OfflinePosManager.getInstance();
 
     // TEST 1: Offline POS Receipt Generation & Local Persistence

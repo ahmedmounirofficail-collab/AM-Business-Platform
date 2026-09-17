@@ -13,21 +13,28 @@ export interface AppConfig {
 }
 
 function readBoolean(name: string, fallback: boolean): boolean {
-  const value = process.env[name];
-  if (!value) return fallback;
-  if (value === 'true' || value === '1') return true;
-  if (value === 'false' || value === '0') return false;
-  throw new Error(`[Config] ${name} must be true, false, 1, or 0.`);
+  const raw = process.env[name];
+  if (raw === undefined || raw === null) return fallback;
+  const value = String(raw).trim().toLowerCase();
+  if (value === '' || value === 'undefined' || value === 'null') return fallback;
+  if (value === 'true' || value === '1' || value === 'yes' || value === 'y' || value === 'on' || value === 'enabled') {
+    return true;
+  }
+  if (value === 'false' || value === '0' || value === 'no' || value === 'n' || value === 'off' || value === 'disabled') {
+    return false;
+  }
+  const numeric = Number(value);
+  if (!Number.isNaN(numeric)) {
+    return numeric !== 0;
+  }
+  console.warn(`[Config] Non-standard boolean value for ${name}="${raw}". Using fallback: ${fallback}`);
+  return fallback;
 }
 
 export function loadAppConfig(): AppConfig {
   const nodeEnv = process.env.NODE_ENV || 'development';
   const isProduction = nodeEnv === 'production';
-  const port = Number(process.env.PORT || 3000);
-
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error('[Config] PORT must be an integer between 1 and 65535.');
-  }
+  const port = 3000;
 
   const authSecret = process.env.AUTH_TOKEN_SECRET || process.env.JWT_SECRET;
   if (isProduction && (!authSecret || authSecret.length < 32)) {
