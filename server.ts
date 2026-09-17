@@ -1698,23 +1698,26 @@ function initializePilotPersistence(): void {
     postingRules = initDurableCollection('postingRules', postingRules, pilotDb);
     industryProfiles = initDurableCollection('industryProfiles', industryProfiles, pilotDb);
     users = initDurableCollection('users', users, pilotDb);
-    // Ensure initial system users, tenants, and companies exist for platform operation
-    for (const initialUser of INITIAL_USERS) {
-      if (!users.some(u => u.id === initialUser.id || u.email.toLowerCase() === initialUser.email.toLowerCase())) {
-        users.push({ ...initialUser });
-        persistEntity('users', initialUser, pilotDb);
+    // Only bootstrap minimal system identity when the environment explicitly allows demo bootstrap.
+    const demoMode = process.env.DEMO_MODE === 'true' || process.env.ALLOW_DEMO_SEED_DATA === 'true';
+    if (demoMode) {
+      for (const initialUser of INITIAL_USERS) {
+        if (!users.some(u => u.id === initialUser.id || u.email.toLowerCase() === initialUser.email.toLowerCase())) {
+          users.push({ ...initialUser });
+          persistEntity('users', initialUser, pilotDb);
+        }
       }
-    }
-    for (const initialTenant of INITIAL_TENANTS) {
-      if (!tenants.some(t => t.id === initialTenant.id)) {
-        tenants.push({ ...initialTenant });
-        persistEntity('tenants', initialTenant, pilotDb);
+      for (const initialTenant of INITIAL_TENANTS) {
+        if (!tenants.some(t => t.id === initialTenant.id)) {
+          tenants.push({ ...initialTenant });
+          persistEntity('tenants', initialTenant, pilotDb);
+        }
       }
-    }
-    for (const initialCompany of INITIAL_COMPANIES) {
-      if (!companies.some(c => c.id === initialCompany.id)) {
-        companies.push({ ...initialCompany });
-        persistEntity('companies', initialCompany, pilotDb);
+      for (const initialCompany of INITIAL_COMPANIES) {
+        if (!companies.some(c => c.id === initialCompany.id)) {
+          companies.push({ ...initialCompany });
+          persistEntity('companies', initialCompany, pilotDb);
+        }
       }
     }
     if (process.env.NODE_ENV === 'production' && users.length === 0) {

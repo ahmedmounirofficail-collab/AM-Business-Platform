@@ -214,8 +214,8 @@ export function initDurableCollection<T extends Record<string, any>>(
   pilotDb: PilotDatabaseService
 ): T[] {
   let list: T[];
-  const allowSeedData = process.env.NODE_ENV !== 'production' &&
-    process.env.ALLOW_DEMO_SEED_DATA === 'true';
+  const demoMode = process.env.DEMO_MODE === 'true' || process.env.ALLOW_DEMO_SEED_DATA === 'true';
+  const allowSeedData = process.env.NODE_ENV !== 'production' && demoMode;
   try {
     if (pilotDb.isCollectionInitialized(collection)) {
       list = pilotDb.loadCollection<T>(collection);
