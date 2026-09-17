@@ -49,6 +49,25 @@ NODE_ENV=production npm start
 Use a durable mounted volume for SQLite. Runtime database files, WAL files,
 backups, and certification outputs are intentionally ignored by Git.
 
+## Local handoff validation
+
+Use the local handoff package before any Windows pilot validation run:
+
+```bash
+cp .env.example .env
+npm install
+npm run validate:local
+npm run dev
+```
+
+For endpoint checks against a running local instance:
+
+```bash
+npm run validate:local -- --check-server
+```
+
+The full local handoff documentation is in [`LOCAL_HANDOFF.md`](./LOCAL_HANDOFF.md).
+
 ## Tests
 
 ```bash

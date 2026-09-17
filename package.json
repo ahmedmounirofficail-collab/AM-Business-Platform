@@ -10,6 +10,8 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "smoke": "tsx scripts/smoke_test.ts",
+    "validate:local": "tsx scripts/validate_local_handoff.ts",
+    "handoff:local": "tsx scripts/validate_local_handoff.ts",
     "test": "tsx scripts/verify_all_phases.ts && tsx scripts/verify_p0_06_vertical_runtime.ts && tsx scripts/verify_p0_07_onboarding_wizard.ts",
     "test:p0-controls": "tsx scripts/verify_p0_route_controls.ts",
     "test:p0-boundary": "tsx scripts/verify_p0_transaction_boundary.ts",
