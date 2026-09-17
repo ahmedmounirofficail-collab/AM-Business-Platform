@@ -67,23 +67,24 @@ export const AccountsPayableManagementView: React.FC = () => {
   // New Invoice Modal
   const [showNewInvoiceModal, setShowNewInvoiceModal] = useState(false);
   const [newInvoiceForm, setNewInvoiceForm] = useState({
+    invoiceNumber: '',
     vendorInvoiceNumber: '',
-    vendorId: 'ven-001',
-    vendorCode: 'VEND-0001',
-    vendorName: 'Dell Technologies Global',
-    poNumber: 'PO-2026-0001',
-    grnNumber: 'GRN-2026-0001',
+    vendorId: '',
+    vendorCode: '',
+    vendorName: '',
+    poNumber: '',
+    grnNumber: '',
     invoiceDate: new Date().toISOString().split('T')[0],
     postingDate: new Date().toISOString().split('T')[0],
     dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-    currency: 'USD',
-    grossAmount: 185000,
+    currency: 'SAR',
+    grossAmount: 0,
     taxAmount: 0,
     netAmount: 185000,
-    itemSku: 'HW-SRV-01',
-    itemName: 'Enterprise Edge Server Blade Gen11',
-    billedQty: 10,
-    unitPrice: 18500
+    itemSku: '',
+    itemName: '',
+    billedQty: 0,
+    unitPrice: 0
   });
 
   // Release Variance Modal
@@ -158,13 +159,17 @@ export const AccountsPayableManagementView: React.FC = () => {
 
   const handleCreateSupplierInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newInvoiceForm.invoiceNumber.trim() || !newInvoiceForm.vendorInvoiceNumber.trim() || !newInvoiceForm.vendorId.trim() || !newInvoiceForm.vendorName.trim()) {
+      alert('يرجى إدخال رقم الفاتورة وبيانات المورد الفعلية');
+      return;
+    }
     try {
       const payload = {
         tenantId: 'ten-001',
         companyId: 'comp-001',
         branchId: 'br-001',
-        invoiceNumber: `SINV-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        vendorInvoiceNumber: newInvoiceForm.vendorInvoiceNumber || `DELL-INV-${Math.floor(10000 + Math.random() * 90000)}`,
+        invoiceNumber: newInvoiceForm.invoiceNumber.trim(),
+        vendorInvoiceNumber: newInvoiceForm.vendorInvoiceNumber.trim(),
         vendorId: newInvoiceForm.vendorId,
         vendorCode: newInvoiceForm.vendorCode,
         vendorName: newInvoiceForm.vendorName,
@@ -182,7 +187,7 @@ export const AccountsPayableManagementView: React.FC = () => {
         taxRegistrationNumber: '310984728100003',
         items: [
           {
-            id: `item-${Date.now()}`,
+            id: `${newInvoiceForm.invoiceNumber.trim()}-${newInvoiceForm.itemSku.trim()}`,
             invoiceId: '',
             itemSku: newInvoiceForm.itemSku,
             itemName: newInvoiceForm.itemName,
@@ -249,7 +254,7 @@ export const AccountsPayableManagementView: React.FC = () => {
   };
 
   return (
-    <div className="purchasing-payables p-4 sm:p-6 min-h-screen font-sans text-slate-800">
+    <div className="purchasing-payables ap-workspace p-4 sm:p-6 min-h-screen font-sans text-slate-800" dir="rtl">
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 pb-4 border-b border-slate-200 gap-4">
         <div>
@@ -261,10 +266,10 @@ export const AccountsPayableManagementView: React.FC = () => {
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <Receipt className="w-7 h-7 text-emerald-600" />
-            Accounts Payable & Financial Matching Domain
+            {`الحسابات الدائنة ومطابقة فواتير الموردين`}
           </h1>
           <p className="text-sm text-slate-600 mt-1">
-            Invoice matching, GR/IR reconciliation, AP vouchers, credit memos, payment proposals & vendor ledger analytics
+            مطابقة الفواتير، تسوية الاستلام والفوترة، الدفعات، وكشوف الموردين
           </p>
         </div>
 
@@ -948,27 +953,45 @@ export const AccountsPayableManagementView: React.FC = () => {
       {/* MODAL: NEW SUPPLIER INVOICE */}
       {showNewInvoiceModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full p-6">
+          <div className="bg-white rounded-lg border border-slate-200 shadow-lg max-w-2xl w-full p-6" dir="rtl">
             <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
               <FileText className="w-5 h-5 text-emerald-600" />
-              Create Supplier Invoice & Run 3-Way Match
+              إنشاء فاتورة مورد ومطابقة ثلاثية
             </h3>
 
             <form onSubmit={handleCreateSupplierInvoice} className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="block text-slate-600 font-medium mb-1">Vendor Invoice Ref #</label>
+                  <label className="block text-slate-600 font-medium mb-1">رقم الفاتورة الداخلي *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newInvoiceForm.invoiceNumber}
+                    onChange={e => setNewInvoiceForm({ ...newInvoiceForm, invoiceNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-medium mb-1">مرجع فاتورة المورد *</label>
                   <input
                     type="text"
                     required
                     value={newInvoiceForm.vendorInvoiceNumber}
                     onChange={e => setNewInvoiceForm({ ...newInvoiceForm, vendorInvoiceNumber: e.target.value })}
-                    placeholder="e.g. DELL-INV-88901"
+                    placeholder="مرجع المورد"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-600 font-medium mb-1">PO Reference #</label>
+                  <label className="block text-slate-600 font-medium mb-1">معرف المورد *</label>
+                  <input type="text" required value={newInvoiceForm.vendorId} onChange={e => setNewInvoiceForm({ ...newInvoiceForm, vendorId: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-md font-mono" />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-medium mb-1">اسم المورد *</label>
+                  <input type="text" required value={newInvoiceForm.vendorName} onChange={e => setNewInvoiceForm({ ...newInvoiceForm, vendorName: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-md" />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-medium mb-1">مرجع أمر الشراء *</label>
                   <input
                     type="text"
                     required
@@ -978,7 +1001,7 @@ export const AccountsPayableManagementView: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-600 font-medium mb-1">GRN Reference #</label>
+                  <label className="block text-slate-600 font-medium mb-1">مرجع استلام البضاعة *</label>
                   <input
                     type="text"
                     required
@@ -988,7 +1011,7 @@ export const AccountsPayableManagementView: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-600 font-medium mb-1">Gross Billed Amount ($)</label>
+                  <label className="block text-slate-600 font-medium mb-1">إجمالي الفاتورة</label>
                   <input
                     type="number"
                     required
@@ -1005,19 +1028,41 @@ export const AccountsPayableManagementView: React.FC = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3 text-xs border-t border-slate-200 pt-4">
+                <div>
+                  <label className="block text-slate-600 font-medium mb-1">رمز الصنف *</label>
+                  <input type="text" required value={newInvoiceForm.itemSku} onChange={e => setNewInvoiceForm({ ...newInvoiceForm, itemSku: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-md font-mono" />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-medium mb-1">وصف الصنف *</label>
+                  <input type="text" required value={newInvoiceForm.itemName} onChange={e => setNewInvoiceForm({ ...newInvoiceForm, itemName: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-md" />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-medium mb-1">الكمية المفوترة *</label>
+                  <input type="number" min="0.01" step="0.01" required value={newInvoiceForm.billedQty || ''} onChange={e => setNewInvoiceForm({ ...newInvoiceForm, billedQty: Number(e.target.value) })} className="w-full px-3 py-2 border border-slate-300 rounded-md text-left" />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-medium mb-1">سعر الوحدة *</label>
+                  <input type="number" min="0.01" step="0.01" required value={newInvoiceForm.unitPrice || ''} onChange={e => {
+                    const unitPrice = Number(e.target.value);
+                    setNewInvoiceForm(current => ({ ...current, unitPrice, grossAmount: unitPrice * current.billedQty, netAmount: unitPrice * current.billedQty }));
+                  }} className="w-full px-3 py-2 border border-slate-300 rounded-md text-left" />
+                </div>
+              </div>
+
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowNewInvoiceModal(false)}
                   className="px-4 py-2 text-xs font-semibold text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
                 >
-                  Cancel
+                  إلغاء
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-sm"
                 >
-                  Run 3-Way Match & Create
+                  تنفيذ المطابقة وإنشاء الفاتورة
                 </button>
               </div>
             </form>

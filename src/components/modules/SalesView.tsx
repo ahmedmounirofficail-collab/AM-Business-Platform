@@ -28,7 +28,7 @@ import { Truck, DollarSign, Layers } from 'lucide-react';
 
 export const SalesView: React.FC = () => {
   const [domainMode, setDomainMode] = useState<'CASH_APPLICATION' | 'CUSTOMER_BILLING' | 'OUTBOUND_LOGISTICS' | 'ADVANCED_O2C' | 'ENTERPRISE_SALES' | 'ACCOUNTS_RECEIVABLE' | 'SALES_DISTRIBUTION'>('CASH_APPLICATION');
-  const { lang, triggerReload, reloadTrigger } = usePlatform();
+  const { lang, triggerReload, reloadTrigger, currentUser } = usePlatform();
   const isAr = lang === 'ar';
 
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -38,7 +38,7 @@ export const SalesView: React.FC = () => {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [lineItems, setLineItems] = useState<SalesInvoiceLine[]>([
-    { itemSku: 'SW-ERP-USR', itemName: 'AM ERP License Perpetual', quantity: 10, unitPrice: 12000, discount: 0, taxRate: 0.15, total: 138000 }
+    { itemSku: '', itemName: '', quantity: 0, unitPrice: 0, discount: 0, taxRate: 0, total: 0 }
   ]);
 
   useEffect(() => {
@@ -59,11 +59,12 @@ export const SalesView: React.FC = () => {
   }, [reloadTrigger]);
 
   const handleCreateInvoice = async () => {
-    if (!selectedCustomerId || lineItems.length === 0) return;
+    const line = lineItems[0];
+    if (!selectedCustomerId || !line || !line.itemName.trim() || line.quantity <= 0 || line.unitPrice <= 0) return;
     await ApiClient.createSalesInvoice({
       customerId: selectedCustomerId,
       lines: lineItems,
-      createdBy: 'usr-001'
+      createdBy: currentUser?.id || ''
     });
     setIsInvoiceModalOpen(false);
     triggerReload();
@@ -72,7 +73,7 @@ export const SalesView: React.FC = () => {
   const totalInvoicedValue = invoices.reduce((acc, i) => acc + i.grandTotal, 0);
 
   return (
-    <div>
+    <div className="sales-workspace">
       {/* Top Domain Switcher Bar */}
       <div className="bg-brand-navy text-white px-6 py-3.5 border-b border-brand-navy-light flex items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-3 min-w-0">
@@ -182,13 +183,13 @@ export const SalesView: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-5">
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-navy text-brand-orange shadow-sm">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-navy text-brand-gold shadow-sm">
                   <ShoppingBag className="w-5 h-5" />
                 </span>
                 <span>{isAr ? 'إدارة المبيعات والتوزيع وفواتير العملاء' : 'Sales & Distribution Management'}</span>
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {isAr ? 'عروض الأسعار، فواتير المبيعات مع محرك ضريبة القيمة المضافة 15%، وحسابات العملاء' : 'Customer 360, VAT 15% Tax Invoicing Engine, & Payment Tracking'}
+                {isAr ? 'عروض الأسعار وفواتير المبيعات وحسابات العملاء' : 'Quotes, sales invoices, and customer accounts'}
               </p>
             </div>
 
@@ -218,9 +219,9 @@ export const SalesView: React.FC = () => {
         </div>
 
         <div className="card-am-surface rounded-xl p-4 shadow-sm">
-          <div className="text-xs font-semibold text-slate-500">{isAr ? 'معدل الالتزام الضريبي' : 'VAT Tax Rate'}</div>
+          <div className="text-xs font-semibold text-slate-500">{isAr ? 'إجمالي الضريبة على الفواتير' : 'Invoice tax total'}</div>
           <div className="text-xl font-mono font-bold text-indigo-600 dark:text-indigo-400 mt-1">
-            15% KSA Standard
+            {invoices.reduce((sum, invoice) => sum + invoice.taxTotal, 0).toLocaleString()} SAR
           </div>
         </div>
       </div>
@@ -325,7 +326,7 @@ export const SalesView: React.FC = () => {
                   <label className="block font-semibold mb-1">Quantity</label>
                   <input
                     type="number"
-                    value={lineItems[0]?.quantity || 1}
+                    value={lineItems[0]?.quantity || ''}
                     onChange={(e) => {
                       const copy = [...lineItems];
                       copy[0].quantity = Number(e.target.value);
@@ -360,7 +361,8 @@ export const SalesView: React.FC = () => {
               </button>
               <button
                 onClick={handleCreateInvoice}
-                className="btn-am-accent px-4 py-2 rounded-lg text-xs cursor-pointer shadow-sm"
+                disabled={!selectedCustomerId || !lineItems[0]?.itemName.trim() || lineItems[0]?.quantity <= 0 || lineItems[0]?.unitPrice <= 0}
+                className="btn-am-accent px-4 py-2 rounded-lg text-xs cursor-pointer shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Generate Invoice
               </button>

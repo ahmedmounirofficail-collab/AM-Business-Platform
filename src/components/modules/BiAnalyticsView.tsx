@@ -54,12 +54,13 @@ export const BiAnalyticsView: React.FC = () => {
             <option value="MONTH-CURRENT">This Month (August 2026)</option>
           </select>
 
-          <button 
-            onClick={() => alert(isAr ? 'جاري تصدير التقرير التحليلي بدقة عالية' : 'Exporting BI Analytical Suite...')}
-            className="btn-am-primary px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm cursor-pointer"
+          <button
+            disabled
+            title={isAr ? 'تصدير التقارير غير متاح حاليًا' : 'Report export is not available yet'}
+            className="btn-am-primary px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm cursor-not-allowed opacity-50"
           >
             <Download className="w-4 h-4 text-brand-gold" />
-            <span>{isAr ? 'تصدير التحليلات' : 'Export BI Analytics'}</span>
+            <span>{isAr ? 'التصدير غير متاح' : 'Export unavailable'}</span>
           </button>
         </div>
       </div>

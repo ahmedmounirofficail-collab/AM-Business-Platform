@@ -5,65 +5,19 @@ import {
   DollarSign, 
   Clock, 
   Users, 
-  TrendingUp, 
-  Plus, 
-  CheckCircle2, 
-  AlertCircle, 
-  Calendar, 
   Search, 
-  FileText,
-  PieChart
 } from 'lucide-react';
 import { usePlatform } from '../../context/PlatformContext';
 
 export const ProjectsView: React.FC = () => {
-  const { lang, activeCompany } = usePlatform();
+  const { lang } = usePlatform();
   const isAr = lang === 'ar';
 
   const [activeTab, setActiveTab] = useState<'projects' | 'wbs' | 'jobCosting' | 'resources' | 'timesheets'>('projects');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const mockProjects = [
-    {
-      id: 'PRJ-2026-001',
-      nameEn: 'Riyadh Metro Station Data Integration',
-      nameAr: 'ربط بيانات محطة مترو الرياض',
-      customer: 'Riyadh Development Authority',
-      budget: 1450000,
-      spent: 820000,
-      progress: 68,
-      status: 'On Track',
-      manager: 'Eng. Khalid Al-Mansoor',
-      deadline: '2026-11-30'
-    },
-    {
-      id: 'PRJ-2026-002',
-      nameEn: 'NEOM Logistics Warehouse Automation',
-      nameAr: 'أتمتة مستودع اللوجستيات في نيوم',
-      customer: 'NEOM Tech & Digital',
-      budget: 3200000,
-      spent: 2950000,
-      progress: 88,
-      status: 'At Risk',
-      manager: 'Eng. Sarah Al-Otaibi',
-      deadline: '2026-09-15'
-    },
-    {
-      id: 'PRJ-2026-003',
-      nameEn: 'Red Sea Global Solar Grid Integration',
-      nameAr: 'تركيب شبكة الطاقة الشمسية للبحر الأحمر',
-      customer: 'Red Sea Global Development',
-      budget: 2800000,
-      spent: 450000,
-      progress: 22,
-      status: 'On Track',
-      manager: 'Eng. Tariq Ziad',
-      deadline: '2027-03-31'
-    }
-  ];
-
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="projects-workspace p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       
       {/* Workspace Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
@@ -73,21 +27,15 @@ export const ProjectsView: React.FC = () => {
               OPERATIONS WORKSPACE
             </span>
             <span className="text-slate-400 text-xs">•</span>
-            <span className="text-xs text-slate-500 font-medium">Job Costing & WBS Hub</span>
+            <span className="text-xs text-slate-500 font-medium">Project workspace</span>
           </div>
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-1 flex items-center gap-2.5">
             <Briefcase className="w-7 h-7 text-blue-600" />
-            <span>{isAr ? 'إدارة المشاريع وتكلفة عقود الأعمال' : 'Projects & Job Costing Workspace'}</span>
+            <span>{isAr ? 'إدارة المشاريع والتكاليف' : 'Projects and costing'}</span>
           </h1>
         </div>
 
-        <button 
-          onClick={() => alert(isAr ? 'فتح نموذج مشروع جديد' : 'New Project Wizard initialized')}
-          className="px-4 py-2.5 rounded-xl bg-[#0B1F3A] text-white hover:bg-slate-800 font-bold text-xs flex items-center gap-2 shadow-lg cursor-pointer border border-[#F28C28]/30"
-        >
-          <Plus className="w-4 h-4 text-[#F28C28]" />
-          <span>{isAr ? 'مشروع جديد' : 'New Enterprise Project'}</span>
-        </button>
+        <span className="px-3 py-2 rounded-md border border-slate-300 text-slate-500 text-xs">{isAr ? 'غير متاح حاليًا' : 'Not available'}</span>
       </div>
 
       {/* Navigation Sub-Tabs */}
@@ -118,37 +66,8 @@ export const ProjectsView: React.FC = () => {
         })}
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <div className="text-[11px] font-bold text-slate-400 uppercase">{isAr ? 'المشاريع النشطة' : 'Active Projects'}</div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">12 Projects</div>
-          <div className="text-[11px] text-emerald-600 font-semibold mt-1">✓ 10 On Track, 2 At Risk</div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <div className="text-[11px] font-bold text-slate-400 uppercase">{isAr ? 'إجمالي ميزانية العقود' : 'Total Contract Value'}</div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-            7,450,000 <span className="text-xs font-normal text-slate-400">{activeCompany?.currency || 'SAR'}</span>
-          </div>
-          <div className="text-[11px] text-blue-600 font-semibold mt-1">Earned Value (EV): 4,210,000 SAR</div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <div className="text-[11px] font-bold text-slate-400 uppercase">{isAr ? 'التكاليف الفعلية الملتزم بها' : 'Actual Spent vs Budget'}</div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-            4,220,000 <span className="text-xs font-normal text-slate-400">SAR</span>
-          </div>
-          <div className="text-[11px] text-slate-500 font-semibold mt-1">Cost Performance Index (CPI): 0.99</div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <div className="text-[11px] font-bold text-slate-400 uppercase">{isAr ? 'متوسط نسبة الإنجاز' : 'Avg Completion Progress'}</div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">59.3%</div>
-          <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-2 overflow-hidden">
-            <div className="bg-blue-600 h-full rounded-full" style={{ width: '59.3%' }} />
-          </div>
-        </div>
+      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900 p-4 text-xs text-amber-800 dark:text-amber-200">
+        {isAr ? 'بيانات المشاريع والتكاليف غير متاحة من مصدر تشغيلي فعلي حاليًا.' : 'Project and costing data is not available from a live operational source yet.'}
       </div>
 
       {/* Main Content View */}
@@ -166,7 +85,7 @@ export const ProjectsView: React.FC = () => {
               />
             </div>
             <div className="text-xs text-slate-500 font-mono">
-              Showing {mockProjects.length} Enterprise Contracts
+              {isAr ? 'لا توجد بيانات تشغيلية' : 'No live project data'}
             </div>
           </div>
 
@@ -185,35 +104,7 @@ export const ProjectsView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {mockProjects.map(p => (
-                  <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                    <td className="p-3 font-mono font-bold text-blue-600 dark:text-blue-400">{p.id}</td>
-                    <td className="p-3 font-semibold text-slate-900 dark:text-white">
-                      {isAr ? p.nameAr : p.nameEn}
-                    </td>
-                    <td className="p-3 text-slate-600 dark:text-slate-300">{p.customer}</td>
-                    <td className="p-3 font-mono">{p.budget.toLocaleString()} SAR</td>
-                    <td className="p-3 font-mono">{p.spent.toLocaleString()} SAR</td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold font-mono">{p.progress}%</span>
-                        <div className="w-16 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                          <div className="bg-blue-600 h-full" style={{ width: `${p.progress}%` }} />
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                        p.status === 'On Track' 
-                          ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' 
-                          : 'bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                      }`}>
-                        {p.status}
-                      </span>
-                    </td>
-                    <td className="p-3 text-slate-500">{p.manager}</td>
-                  </tr>
-                ))}
+                <tr><td colSpan={8} className="p-10 text-center text-slate-500">{isAr ? 'غير متاح حاليًا' : 'Not available'}</td></tr>
               </tbody>
             </table>
           </div>
@@ -221,29 +112,10 @@ export const ProjectsView: React.FC = () => {
       )}
 
       {activeTab === 'wbs' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-4">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Layers className="w-4 h-4 text-blue-500" />
-            <span>{isAr ? 'تفصيل هيكل العمل للمشروع (WBS Tree Breakdown)' : 'Work Breakdown Structure (WBS) Hierarchy'}</span>
-          </h2>
-          <div className="space-y-3 font-mono text-xs">
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-              <div className="font-bold text-slate-900 dark:text-white">1.0 Engineering & Site Survey (Budget: 350,000 SAR)</div>
-              <div className="pl-4 rtl:pr-4 pt-2 space-y-1 text-slate-600 dark:text-slate-300">
-                <div>1.1 Topographical Fiber Survey — <span className="text-emerald-600 font-bold">100% Completed</span></div>
-                <div>1.2 Environmental Impact Assessment — <span className="text-emerald-600 font-bold">100% Completed</span></div>
-                <div>1.3 System Architecture Design — <span className="text-blue-600 font-bold">85% In Progress</span></div>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-              <div className="font-bold text-slate-900 dark:text-white">2.0 Hardware Procurement & Fiber Cabling (Budget: 600,000 SAR)</div>
-              <div className="pl-4 rtl:pr-4 pt-2 space-y-1 text-slate-600 dark:text-slate-300">
-                <div>2.1 Cisco Industrial Switch Racks — <span className="text-emerald-600 font-bold">Delivered</span></div>
-                <div>2.2 Fiber Optic Underground Trenching — <span className="text-amber-600 font-bold">45% In Progress</span></div>
-              </div>
-            </div>
-          </div>
+        <div className="p-8 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xs space-y-3">
+          <Layers className="w-10 h-10 text-slate-400 mx-auto" />
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">{isAr ? 'هيكل العمل غير متاح' : 'Work breakdown is unavailable'}</h3>
+          <p className="text-xs text-slate-500">{isAr ? 'لا يوجد مصدر مشاريع تشغيلي موصول حاليًا.' : 'No live project source is connected for this workspace.'}</p>
         </div>
       )}
 
@@ -251,12 +123,12 @@ export const ProjectsView: React.FC = () => {
         <div className="p-8 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-3">
           <Clock className="w-10 h-10 text-blue-500 mx-auto" />
           <h3 className="text-base font-bold text-slate-900 dark:text-white">
-            {isAr ? 'وحدة التكلفة وتتبع الساعات التلقائي' : 'Real-Time Job Costing & Timesheet Engine'}
+            {isAr ? 'بيانات التكلفة وتتبع الساعات غير متاحة' : 'Costing and timesheet data unavailable'}
           </h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
             {isAr 
-              ? 'مربوطة تلقائياً مع محرك الفعالية المالية للمشتريات ورواتب الموظفين لحساب التكلفة الحقيقية بدون إدخال يدوي مكرر.'
-              : 'Seamlessly linked with Purchasing & Payroll financial events for automatic job cost posting and earn-value tracking.'
+              ? 'لا توجد بيانات تشغيلية موصولة لهذه الوحدة حاليًا.'
+              : 'No live operational data source is connected for this workspace.'
             }
           </p>
         </div>

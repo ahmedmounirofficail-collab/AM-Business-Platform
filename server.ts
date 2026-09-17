@@ -454,6 +454,7 @@ import { InventoryExecutionEngine } from './src/engine/inventoryExecutionEngine'
 import { WorkflowEngine } from './src/engine/workflowEngine';
 import { DocumentRelationshipEngine } from './src/engine/documentRelationshipEngine';
 import { ReportingEngine } from './src/engine/reportingEngine';
+import { ReconciliationEngine } from './src/engine/reconciliationEngine';
 import { BackgroundJobEngine } from './src/engine/backgroundJobEngine';
 import { BusinessRulesEngine } from './src/engine/businessRulesEngine';
 import { NotificationEngine } from './src/engine/notificationEngine';
@@ -2158,7 +2159,9 @@ function processFinancialEvent(
   partyName?: string,
   description?: string,
   triggeredBy: string = 'usr-001',
-  dimensions?: any
+  dimensions?: any,
+  effectivePeriod?: { fiscalYear: number; fiscalPeriod: number },
+  idempotencyKey?: string
 ): JournalEntry | null {
   const result = FinancialEventEngine.processEvent(
     {
@@ -2175,7 +2178,22 @@ function processFinancialEvent(
       partyName,
       description,
       dimensions,
-      triggeredBy
+      triggeredBy,
+      fiscalYear: effectivePeriod?.fiscalYear,
+      fiscalPeriod: effectivePeriod?.fiscalPeriod,
+      idempotencyKey,
+      validateFiscalPeriod: (eventTenantId, eventCompanyId, fiscalYear, fiscalPeriod) => {
+        const period = glFiscalPeriods.find(candidate =>
+          candidate.tenantId === eventTenantId &&
+          candidate.companyId === eventCompanyId &&
+          candidate.year === fiscalYear &&
+          candidate.periodNumber === fiscalPeriod
+        );
+        if (!period) throw new Error(`Effective fiscal period ${fiscalYear}/${fiscalPeriod} was not found`);
+        if (period.status === 'CLOSED') {
+          throw new Error(`Effective fiscal period ${fiscalYear}/${fiscalPeriod} is closed or locked`);
+        }
+      },
     },
     postingRules,
     accounts,
@@ -2186,6 +2204,26 @@ function processFinancialEvent(
   );
 
   return result.journalEntry;
+}
+
+function resolveFinancialPeriod(effectiveDate: string, tenantId: string, companyId: string): { fiscalYear: number; fiscalPeriod: number } {
+  const timestamp = new Date(effectiveDate).getTime();
+  if (!Number.isFinite(timestamp)) throw new Error('A valid effective document date is required');
+  const period = glFiscalPeriods.find(candidate => {
+    const start = new Date(candidate.startDate).getTime();
+    const end = new Date(candidate.endDate).getTime();
+    return candidate.tenantId === tenantId &&
+      candidate.companyId === companyId &&
+      Number.isFinite(start) &&
+      Number.isFinite(end) &&
+      timestamp >= start &&
+      timestamp <= end;
+  });
+  if (!period) throw new Error(`No effective fiscal period covers document date ${effectiveDate}`);
+  if (period.status === 'CLOSED') {
+    throw new Error(`Document date ${effectiveDate} falls in a closed or locked fiscal period`);
+  }
+  return { fiscalYear: period.year, fiscalPeriod: period.periodNumber };
 }
 
 // Universal Workflow Evaluation Helper
@@ -3156,6 +3194,24 @@ async function startServer() {
 
   app.get('/api/v1/reports/inventory-valuation', (req: Request, res: Response) => {
     const report = ReportingEngine.generateInventoryValuation(inventory);
+    res.json(report);
+  });
+
+  app.get('/api/v1/reports/reconciliation', (req: Request, res: Response) => {
+    const companyId = String(req.query.companyId || 'comp-001');
+    const period = String(req.query.period || new Date().toISOString().slice(0, 7));
+    const report = ReconciliationEngine.generateReport({
+      companyId,
+      period,
+      accounts,
+      customers,
+      vendors,
+      inventory,
+      fixedAssets: fixedAssetMasters,
+      banks,
+      invoices: salesInvoices,
+      purchaseInvoices
+    });
     res.json(report);
   });
 
@@ -6082,7 +6138,8 @@ async function startServer() {
     const inv = supplierInvoices.find(i => i.id === req.params.id);
     if (!inv) return res.status(404).json({ error: 'Supplier Invoice not found' });
 
-    const { newStatus, user, reason, correlationId } = req.body;
+    const { newStatus, reason, correlationId } = req.body;
+    const user = getAuthenticatedActor(req);
     const { updatedInvoice, auditRecord } = AccountsPayableEngine.transitionInvoiceState(
       inv,
       newStatus,
@@ -6103,7 +6160,8 @@ async function startServer() {
     const inv = supplierInvoices.find(i => i.id === req.params.id);
     if (!inv) return res.status(404).json({ error: 'Supplier Invoice not found' });
 
-    const { releasedBy, reason } = req.body;
+    const { reason } = req.body;
+    const releasedBy = getAuthenticatedActor(req);
     const { updatedInvoice, auditRecord } = AccountsPayableEngine.releaseVarianceBlock(
       inv,
       releasedBy || 'usr-001',
@@ -6121,6 +6179,7 @@ async function startServer() {
   app.post('/api/v1/ap/supplier-invoices/:id/post', (req: Request, res: Response) => {
     const inv = supplierInvoices.find(i => i.id === req.params.id);
     if (!inv) return res.status(404).json({ error: 'Supplier Invoice not found' });
+    const actor = getAuthenticatedActor(req);
 
     inv.status = 'POSTED';
     inv.updatedAt = new Date().toISOString();
@@ -6134,7 +6193,7 @@ async function startServer() {
       inv.tenantId,
       inv.companyId,
       'SUPPLIER_INVOICE_POSTED' as any,
-      'SupplierInvoice',
+      'PurchaseInvoice',
       inv.id,
       inv.invoiceNumber,
       inv.grossAmount,
@@ -6142,7 +6201,10 @@ async function startServer() {
       inv.currency,
       inv.vendorId,
       inv.vendorName,
-      `Supplier Invoice Posted ${inv.invoiceNumber} for ${inv.vendorName}`
+      `Supplier Invoice Posted ${inv.invoiceNumber} for ${inv.vendorName}`,
+      actor,
+      undefined,
+      resolveFinancialPeriod(inv.postingDate, inv.tenantId, inv.companyId)
     );
 
     res.json({ invoice: inv, voucher });
@@ -6203,13 +6265,14 @@ async function startServer() {
 
   app.post('/api/v1/ap/payment-proposals', (req: Request, res: Response) => {
     const { cutoffDueDate, vendorId } = req.body;
+    const actor = getAuthenticatedActor(req);
     const { proposal, auditRecord } = AccountsPayableEngine.generatePaymentProposal(
       'ten-001',
       'comp-001',
       cutoffDueDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
       apVouchers,
       vendorId,
-      'usr-001'
+      actor
     );
     paymentProposals.unshift(proposal);
     apAuditLogs.unshift(auditRecord);
@@ -6226,13 +6289,14 @@ async function startServer() {
     const { proposalId, paymentMethod, bankAccountId } = req.body;
     const prop = paymentProposals.find(p => p.id === proposalId);
     if (!prop) return res.status(404).json({ error: 'Payment Proposal not found' });
+    const actor = getAuthenticatedActor(req);
 
     prop.status = 'EXECUTED';
     const { batch, auditRecord } = AccountsPayableEngine.createPaymentBatch(
       prop,
       paymentMethod || 'BANK_TRANSFER',
       bankAccountId || 'bank-001',
-      'usr-001'
+      actor
     );
 
     paymentBatches.unshift(batch);
@@ -6253,7 +6317,7 @@ async function startServer() {
       batch.tenantId,
       batch.companyId,
       'SUPPLIER_PAYMENT_POSTED' as any,
-      'PaymentBatch',
+      'SupplierPayment',
       batch.id,
       batch.batchNumber,
       batch.totalAmount,
@@ -6261,7 +6325,10 @@ async function startServer() {
       batch.currency,
       batch.items[0]?.vendorId,
       batch.items[0]?.vendorName,
-      `Supplier Payment Batch ${batch.batchNumber} via ${batch.paymentMethod}`
+      `Supplier Payment Batch ${batch.batchNumber} via ${batch.paymentMethod}`,
+      actor,
+      undefined,
+      resolveFinancialPeriod(batch.paymentDate || new Date().toISOString().split('T')[0], batch.tenantId, batch.companyId)
     );
 
     res.status(201).json(batch);
@@ -6649,7 +6716,9 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
         salesOrderRef,
         lines,
         currency,
-        exchangeRate
+        exchangeRate,
+        invoiceDate,
+        dueDate
       } = req.body;
 
       const customer = arCustomers.find(c => c.id === customerId);
@@ -6665,22 +6734,17 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
         lines || [],
         currency || customer.currency || 'SAR',
         exchangeRate || 1.0,
-        'usr-001',
-        arSalesInvoices
+        getAuthenticatedActor(req),
+        arSalesInvoices,
+        { invoiceDate, dueDate }
       );
 
-      arSalesInvoices.unshift(invoice);
-      arAuditLogs.unshift(auditRecord);
-
-      // Update customer open balance
-      customer.currentBalance += invoice.grandTotal;
-
       // Emit Financial Event (Debit AR, Credit Revenue + Output VAT)
-      processFinancialEvent(
+      const journalEntry = processFinancialEvent(
         invoice.tenantId,
         invoice.companyId,
         'CUSTOMER_INVOICE_POSTED' as any,
-        'CustomerSalesInvoice',
+        'SalesInvoice',
         invoice.id,
         invoice.invoiceNumber,
         invoice.grandTotal,
@@ -6688,13 +6752,131 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
         invoice.currency,
         invoice.customerId,
         invoice.customerName,
-        `Customer Sales Invoice ${invoice.invoiceNumber} for ${invoice.customerName}`
+        `Customer Sales Invoice ${invoice.invoiceNumber} for ${invoice.customerName}`,
+        invoice.createdBy,
+        undefined,
+        resolveFinancialPeriod(invoice.invoiceDate, invoice.tenantId, invoice.companyId),
+        `AR-INVOICE:${invoice.id}`
       );
+      if (journalEntry) {
+        invoice.journalEntryId = journalEntry.id;
+        const financialEvent = financialEvents.find(event => event.sourceDocumentId === invoice.id);
+        if (financialEvent) invoice.financialEventId = financialEvent.id;
+      }
+
+      arSalesInvoices.unshift(invoice);
+      arAuditLogs.unshift(auditRecord);
+      customer.currentBalance += invoice.grandTotal;
 
       res.status(201).json(invoice);
     } catch (err: any) {
       res.status(400).json({ error: err.message || 'Failed to create sales invoice' });
     }
+  });
+
+  app.get('/api/v1/ar/invoices/:id', (req: Request, res: Response) => {
+    const invoice = arSalesInvoices.find(item => item.id === req.params.id);
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+    const journal = invoice.journalEntryId
+      ? journalEntries.find(entry => entry.id === invoice.journalEntryId)
+      : undefined;
+    const financialEvent = invoice.financialEventId
+      ? financialEvents.find(event => event.id === invoice.financialEventId)
+      : financialEvents.find(event => event.sourceDocumentId === invoice.id);
+    const payments = arReceiptAllocations.filter(allocation => allocation.invoiceId === invoice.id);
+    const creditNotes = arCreditNotes.filter(note => note.invoiceId === invoice.id);
+    res.json({
+      invoice,
+      accounting: { journal, financialEvent },
+      payments,
+      creditNotes,
+      relatedDocuments: invoice.salesOrderRef ? { salesOrderRef: invoice.salesOrderRef } : {}
+    });
+  });
+
+  app.get('/api/v1/ar/invoices/:id/print', (req: Request, res: Response) => {
+    const invoice = arSalesInvoices.find(item => item.id === req.params.id);
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+    const customer = arCustomers.find(item => item.id === invoice.customerId);
+    const company = companies.find(item => item.id === invoice.companyId);
+    const escapeHtml = (value: unknown) => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+    const money = (value: number) => `${value.toFixed(2)} ${escapeHtml(invoice.currency)}`;
+    const rows = invoice.lines.map(line => `
+      <tr>
+        <td>${escapeHtml(line.itemCode)}</td>
+        <td>${escapeHtml(line.itemName)}</td>
+        <td class="number">${line.quantity}</td>
+        <td class="number">${money(line.unitPrice)}</td>
+        <td class="number">${(line.discountAmount || 0).toFixed(2)}</td>
+        <td class="number">${(line.taxAmount || 0).toFixed(2)}</td>
+        <td class="number">${money(line.lineTotal)}</td>
+      </tr>`).join('');
+    res.type('html').send(`<!doctype html>
+      <html lang="ar" dir="rtl">
+      <head>
+        <meta charset="utf-8">
+        <title>${escapeHtml(invoice.invoiceNumber)}</title>
+        <style>
+          @page { size: A4; margin: 14mm; }
+          :root { color-scheme: light; font-family: Arial, sans-serif; }
+          body { margin: 0; color: #172033; font-size: 11px; direction: rtl; }
+          .document { width: 100%; }
+          header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #172033; padding-bottom: 12px; }
+          .ltr { direction: ltr; text-align: left; }
+          h1 { margin: 0 0 6px; font-size: 23px; }
+          h2 { margin: 0 0 4px; font-size: 15px; }
+          .meta, .customer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 20px; margin: 14px 0; }
+          .label { color: #596579; font-size: 10px; }
+          table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+          thead { display: table-header-group; }
+          tr { break-inside: avoid; page-break-inside: avoid; }
+          th, td { border-bottom: 1px solid #d5dbe5; padding: 7px 5px; vertical-align: top; }
+          th { background: #eef2f7; text-align: right; }
+          .number { direction: ltr; text-align: left; white-space: nowrap; }
+          .totals { width: 42%; margin: 16px 0 0 auto; }
+          .totals div { display: flex; justify-content: space-between; border-bottom: 1px solid #d5dbe5; padding: 6px; }
+          .grand-total { font-size: 14px; font-weight: 700; background: #eef2f7; }
+          footer { margin-top: 24px; border-top: 1px solid #d5dbe5; padding-top: 8px; break-inside: avoid; page-break-inside: avoid; }
+          @media print { .document { min-height: 267mm; } }
+        </style>
+      </head>
+      <body>
+        <main class="document">
+          <header>
+            <div><h1>${escapeHtml(company?.name || 'Company')}</h1><div>${escapeHtml(company?.address || '')}</div></div>
+            <div class="ltr"><h1>INVOICE</h1><strong>${escapeHtml(invoice.invoiceNumber)}</strong></div>
+          </header>
+          <section class="meta">
+            <div><span class="label">Invoice date</span><br>${escapeHtml(invoice.invoiceDate)}</div>
+            <div><span class="label">Due date</span><br>${escapeHtml(invoice.dueDate)}</div>
+            <div><span class="label">Status</span><br>${escapeHtml(invoice.status)}</div>
+            <div><span class="label">Payment terms</span><br>${escapeHtml(customer?.paymentTermsCode || '')}</div>
+          </section>
+          <section class="customer">
+            <div><span class="label">Customer</span><br><strong>${escapeHtml(customer?.name || invoice.customerName)}</strong><br>${escapeHtml(customer?.code || '')}</div>
+            <div><span class="label">Tax information</span><br>${escapeHtml(customer?.taxNumber || '')}<br>${escapeHtml(customer?.address || '')}</div>
+          </section>
+          <table>
+            <thead><tr><th>Item code</th><th>Description</th><th>Qty</th><th>Unit price</th><th>Discount</th><th>Tax</th><th>Total</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <section class="totals">
+            <div><span>Subtotal</span><span class="number">${money(invoice.subtotal)}</span></div>
+            <div><span>Discount</span><span class="number">${money(invoice.discountTotal)}</span></div>
+            <div><span>Tax</span><span class="number">${money(invoice.taxTotal)}</span></div>
+            <div class="grand-total"><span>Grand total</span><span class="number">${money(invoice.grandTotal)}</span></div>
+            <div><span>Paid</span><span class="number">${money(invoice.paidAmount)}</span></div>
+            <div><span>Balance</span><span class="number">${money(invoice.remainingAmount)}</span></div>
+          </section>
+          <footer>Payment terms: ${escapeHtml(customer?.paymentTermsCode || 'Not specified')}<br>Invoice ${escapeHtml(invoice.invoiceNumber)} · Printed from persisted AR data</footer>
+        </main>
+      </body>
+      </html>`);
   });
 
   app.post('/api/v1/ar/invoices/:id/transition', (req: Request, res: Response) => {
@@ -6724,9 +6906,30 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
 
   app.post('/api/v1/ar/credit-notes', (req: Request, res: Response) => {
     try {
+      const actor = getAuthenticatedActor(req);
       const { customerId, type, reason, subtotal, taxRate, invoiceId, invoiceNumber } = req.body;
       const customer = arCustomers.find(c => c.id === customerId);
       if (!customer) return res.status(404).json({ error: 'Customer not found' });
+      const amount = Number(subtotal);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return res.status(400).json({ error: 'Credit note subtotal must be greater than zero' });
+      }
+      const originalInvoice = invoiceId
+        ? arSalesInvoices.find(invoice => invoice.id === invoiceId && invoice.customerId === customerId)
+        : undefined;
+      if (invoiceId && !originalInvoice) {
+        return res.status(404).json({ error: 'Original invoice not found for this customer' });
+      }
+      const resolvedTaxRate = taxRate !== undefined
+        ? Number(taxRate)
+        : TaxEngine.resolveTaxRate({ tenantId: customer.tenantId, companyId: customer.companyId, countryOrJurisdiction: 'SA' }).taxRate;
+      if (originalInvoice) {
+        const requestedTotal = amount * (1 + resolvedTaxRate);
+        const allowable = Math.max(0, originalInvoice.remainingAmount);
+        if (requestedTotal > allowable + 0.005) {
+          return res.status(400).json({ error: `Credit note total ${requestedTotal.toFixed(2)} exceeds allowable balance ${allowable.toFixed(2)}` });
+        }
+      }
 
       const { creditNote, auditRecord } = AccountsReceivableEngine.createCreditNote(
         customer.tenantId,
@@ -6735,25 +6938,19 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
         customer.name,
         type || 'PRICE_ADJUSTMENT',
         reason || 'Customer Commercial Adjustment',
-        Number(subtotal),
-        taxRate !== undefined ? Number(taxRate) : TaxEngine.resolveTaxRate({ tenantId: customer.tenantId, companyId: customer.companyId, countryOrJurisdiction: 'SA' }).taxRate,
+        amount,
+        resolvedTaxRate,
         invoiceId,
         invoiceNumber,
-        'usr-001'
+        actor
       );
 
-      arCreditNotes.unshift(creditNote);
-      arAuditLogs.unshift(auditRecord);
-
-      // Adjust customer balance
-      customer.currentBalance = Math.max(0, customer.currentBalance - creditNote.grandTotal);
-
       // Emit Financial Event (Debit Revenue / Sales Returns, Credit AR)
-      processFinancialEvent(
+      const journalEntry = processFinancialEvent(
         creditNote.tenantId,
         creditNote.companyId,
         'CUSTOMER_CREDIT_NOTE_POSTED' as any,
-        'CustomerCreditNote',
+        'SalesInvoice',
         creditNote.id,
         creditNote.creditNoteNumber,
         creditNote.grandTotal,
@@ -6761,8 +6958,27 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
         'SAR',
         creditNote.customerId,
         creditNote.customerName,
-        `Customer Credit Note ${creditNote.creditNoteNumber} (${type})`
+        `Customer Credit Note ${creditNote.creditNoteNumber} (${type})`,
+        actor,
+        undefined,
+        resolveFinancialPeriod(creditNote.createdAt.split('T')[0], creditNote.tenantId, creditNote.companyId),
+        `AR-CREDIT-NOTE:${creditNote.id}`
       );
+      if (!journalEntry) {
+        return res.status(409).json({ error: 'Credit note could not be posted because no valid sales posting rule is configured' });
+      }
+      creditNote.journalEntryId = journalEntry.id;
+      const financialEvent = financialEvents.find(event => event.sourceDocumentId === creditNote.id);
+      if (financialEvent) creditNote.financialEventId = financialEvent.id;
+      arCreditNotes.unshift(creditNote);
+      arAuditLogs.unshift(auditRecord);
+      customer.currentBalance = Math.max(0, customer.currentBalance - creditNote.grandTotal);
+      if (originalInvoice) {
+        originalInvoice.remainingAmount = Math.max(0, originalInvoice.remainingAmount - creditNote.grandTotal);
+        originalInvoice.paymentStatus = originalInvoice.remainingAmount === 0
+          ? 'PAID'
+          : originalInvoice.paidAmount > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
+      }
 
       res.status(201).json(creditNote);
     } catch (err: any) {
@@ -6777,6 +6993,7 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
 
   app.post('/api/v1/ar/receipts', (req: Request, res: Response) => {
     try {
+      const actor = getAuthenticatedActor(req);
       const {
         customerId,
         paymentMethod,
@@ -6790,6 +7007,13 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
 
       const customer = arCustomers.find(c => c.id === customerId);
       if (!customer) return res.status(404).json({ error: 'Customer not found' });
+      const receiptAmount = Number(totalAmount);
+      if (!Number.isFinite(receiptAmount) || receiptAmount <= 0) {
+        return res.status(400).json({ error: 'Receipt amount must be greater than zero' });
+      }
+      if (typeof referenceNumber !== 'string' || !referenceNumber.trim()) {
+        return res.status(400).json({ error: 'Receipt reference is required' });
+      }
 
       const { receipt, auditRecord } = AccountsReceivableEngine.createReceipt(
         customer.tenantId,
@@ -6798,11 +7022,11 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
         customer.name,
         paymentMethod || 'BANK_TRANSFER',
         receiptType || 'STANDARD',
-        Number(totalAmount),
+        receiptAmount,
         referenceNumber,
         currency || 'SAR',
         exchangeRate || 1.0,
-        'usr-001'
+        actor
       );
 
       arReceipts.unshift(receipt);
@@ -6819,7 +7043,8 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
           'FIFO',
           arSalesInvoices,
           undefined,
-          'usr-001'
+          receipt.createdBy,
+          { id: receipt.id, number: receipt.receiptNumber }
         );
 
         arReceiptAllocations.unshift(...allocRes.allocations);
@@ -6831,15 +7056,15 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
         receipt.unallocatedAmount = Math.max(0, receipt.totalAmount - receipt.allocatedAmount);
       }
 
-      // Update customer balance
-      customer.currentBalance = Math.max(0, customer.currentBalance - receipt.totalAmount);
+      // Only allocated cash reduces receivables; unallocated cash remains an advance.
+      customer.currentBalance = Math.max(0, customer.currentBalance - receipt.allocatedAmount);
 
       // Emit Financial Event (Debit Bank/Cash, Credit AR)
       processFinancialEvent(
         receipt.tenantId,
         receipt.companyId,
         'CUSTOMER_RECEIPT_POSTED' as any,
-        'CustomerReceipt',
+        'CustomerPayment',
         receipt.id,
         receipt.receiptNumber,
         receipt.totalAmount,
@@ -6847,7 +7072,11 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
         receipt.currency,
         receipt.customerId,
         receipt.customerName,
-        `Customer Receipt ${receipt.receiptNumber} via ${receipt.paymentMethod}`
+        `Customer Receipt ${receipt.receiptNumber} via ${receipt.paymentMethod}`,
+        actor,
+        undefined,
+        resolveFinancialPeriod(receipt.receiptDate, receipt.tenantId, receipt.companyId),
+        `AR-RECEIPT:${receipt.id}`
       );
 
       res.status(201).json(receipt);
@@ -6859,6 +7088,7 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
   app.post('/api/v1/ar/receipts/:id/reverse', (req: Request, res: Response) => {
     const { id } = req.params;
     const { reason } = req.body;
+    const actor = getAuthenticatedActor(req);
     const rct = arReceipts.find(r => r.id === id);
     if (!rct) return res.status(404).json({ error: 'Receipt not found' });
 
@@ -6871,7 +7101,7 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
       arSalesInvoices,
       arReceiptAllocations,
       reason || 'Customer Payment Reversal',
-      'usr-001'
+      actor
     );
 
     const rIdx = arReceipts.findIndex(r => r.id === id);
@@ -6882,7 +7112,7 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
     // Restore customer balance
     const cust = arCustomers.find(c => c.id === rct.customerId);
     if (cust) {
-      cust.currentBalance += rct.totalAmount;
+      cust.currentBalance += rct.allocatedAmount;
     }
 
     // Emit Financial Reversal Event (Debit AR, Credit Bank)
@@ -6898,7 +7128,10 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
       rct.currency,
       rct.customerId,
       rct.customerName,
-      `Reversal of Customer Receipt ${rct.receiptNumber}. Reason: ${reason || 'Payment bounced'}`
+      `Reversal of Customer Receipt ${rct.receiptNumber}. Reason: ${reason || 'Payment bounced'}`,
+      actor,
+      undefined,
+      resolveFinancialPeriod(rct.receiptDate, rct.tenantId, rct.companyId)
     );
 
     res.json(updatedReceipt);
@@ -6916,6 +7149,14 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
       if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
       const allocAmt = Number(amount || 0);
+      if (!Number.isFinite(allocAmt) || allocAmt <= 0) {
+        return res.status(400).json({ error: 'Allocation amount must be greater than zero' });
+      }
+      const receipt = receiptId ? arReceipts.find(item => item.id === receiptId && item.customerId === customerId) : undefined;
+      if (receiptId && !receipt) return res.status(404).json({ error: 'Receipt not found for this customer' });
+      if (receipt && allocAmt > receipt.unallocatedAmount + 0.005) {
+        return res.status(400).json({ error: 'Allocation amount exceeds the receipt unallocated amount' });
+      }
 
       const result = AccountsReceivableEngine.allocateReceipt(
         customer.tenantId,
@@ -6926,7 +7167,11 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
         allocationType || 'MANUAL',
         arSalesInvoices,
         targetInvoiceIds,
-        'usr-001'
+        getAuthenticatedActor(req),
+        receiptId ? {
+          id: receiptId,
+          number: arReceipts.find(receipt => receipt.id === receiptId)?.receiptNumber || receiptId
+        } : undefined
       );
 
       arReceiptAllocations.unshift(...result.allocations);
@@ -6934,12 +7179,14 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
       arAuditLogs.unshift(...result.auditRecords);
 
       if (receiptId) {
-        const rct = arReceipts.find(r => r.id === receiptId);
+        const rct = receipt;
         if (rct) {
           const sumAlloc = result.allocations.reduce((s, a) => s + a.allocatedAmount, 0);
           rct.allocatedAmount += sumAlloc;
           rct.unallocatedAmount = Math.max(0, rct.totalAmount - rct.allocatedAmount);
         }
+
+        customer.currentBalance = Math.max(0, customer.currentBalance - result.allocations.reduce((sum, allocation) => sum + allocation.allocatedAmount, 0));
       }
 
       res.status(201).json({ allocations: result.allocations, updatedInvoices: result.updatedInvoices });
@@ -10686,6 +10933,7 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
     }
 
     const now = new Date().toISOString();
+    const actor = getAuthenticatedActor(req);
     const invoiceLines = order.lines.map((l, i) => ({
       id: `inv-line-${Date.now()}-${i}`,
       itemCode: l.itemSku,
@@ -10724,7 +10972,7 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
       zatcaUuid: `ZATCA-${invNum}-${Date.now()}`,
       zatcaQrHash: `QR-${invNum}`,
       hash: SalesEngine.generateSha256Seal({ invNum, grandTotal: order.grandTotal, now }),
-      createdBy: 'usr-002',
+      createdBy: actor,
       createdAt: now,
       updatedAt: now
     };
@@ -10747,7 +10995,11 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
       newInvoice.currency,
       newInvoice.customerId,
       newInvoice.customerName,
-      `AR Revenue Recognized for Sales Order #${order.orderNumber}`
+      `AR Revenue Recognized for Sales Order #${order.orderNumber}`,
+      actor,
+      undefined,
+      resolveFinancialPeriod(newInvoice.invoiceDate, order.tenantId, order.companyId),
+      `SALES-ORDER-INVOICE:${order.id}`
     );
 
     res.json({ success: true, invoice: newInvoice, order });
@@ -13175,7 +13427,19 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
         workOrder: wo,
         issuedBy,
         issueType,
-        items
+        items,
+        inventoryContext: {
+          items: inventory,
+          warehouses,
+          bins: binLocations,
+          quants: stockQuants,
+          batchLots,
+          serials: serialNumbers,
+          stockLedgerEntries,
+          config: inventoryConfig,
+          userName: (req as any).auth?.name || issuedBy,
+          userRole: (req as any).auth?.role || 'Inventory Manager'
+        }
       });
       const idx = manufacturingWorkOrders.findIndex(w => w.id === req.params.id);
       manufacturingWorkOrders[idx] = updatedWorkOrder;
@@ -13225,7 +13489,19 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
         workOrder: wo,
         receivedQuantity: Number(receivedQuantity),
         receivedBy,
-        destinationWarehouseId
+        destinationWarehouseId,
+        inventoryContext: {
+          items: inventory,
+          warehouses,
+          bins: binLocations,
+          quants: stockQuants,
+          batchLots,
+          serials: serialNumbers,
+          stockLedgerEntries,
+          config: inventoryConfig,
+          userName: (req as any).auth?.name || receivedBy,
+          userRole: (req as any).auth?.role || 'Inventory Manager'
+        }
       });
       const idx = manufacturingWorkOrders.findIndex(w => w.id === req.params.id);
       manufacturingWorkOrders[idx] = updatedWorkOrder;

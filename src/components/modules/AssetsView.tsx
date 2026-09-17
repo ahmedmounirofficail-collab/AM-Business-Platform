@@ -380,7 +380,7 @@ export const AssetsView: React.FC = () => {
   });
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="assets-workspace p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       
       {/* Notifications Banner */}
       {statusMessage && (
@@ -422,9 +422,9 @@ export const AssetsView: React.FC = () => {
           
           <button 
             onClick={() => setShowAcqModal(true)}
-            className="px-4 py-2.5 rounded-xl bg-[#0B1F3A] hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-2 shadow-lg cursor-pointer border border-[#F28C28]/30 transition-all active:scale-95"
+            className="px-4 py-2.5 rounded-lg bg-brand-navy hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-2 shadow-sm cursor-pointer border border-brand-gold/30 transition-all active:scale-95"
           >
-            <Plus className="w-4 h-4 text-[#F28C28]" />
+            <Plus className="w-4 h-4 text-brand-gold" />
             <span>{isAr ? 'تسجيل أصل جديد' : 'Register New Asset'}</span>
           </button>
         </div>
@@ -437,7 +437,7 @@ export const AssetsView: React.FC = () => {
           { id: 'registry', label: isAr ? 'سجل الأصول' : 'Asset Register', icon: Building2 },
           { id: 'acquisitions', label: isAr ? 'الاستحواذ والرأسمالة' : 'Acquisitions', icon: Plus },
           { id: 'depreciation', label: isAr ? 'جدول الإهلاك' : 'Depreciation Schedule', icon: Calculator },
-          { id: 'transfers', label: isAr ? 'تحويلات الأصول' : 'Transfers Engine', icon: ArrowRightLeft },
+          { id: 'transfers', label: isAr ? 'تحويلات الأصول' : 'Asset transfers', icon: ArrowRightLeft },
           { id: 'disposals_reval', label: isAr ? 'استبعاد وتقييم (IAS 16/36)' : 'Disposals & Revaluations', icon: ShieldAlert },
           { id: 'maintenance', label: isAr ? 'الصيانة والتشغيل' : 'Maintenance Log', icon: Wrench },
           { id: 'verification', label: isAr ? 'الجرد والتأكيد الفعلي' : 'Physical Audit', icon: ScanLine },
@@ -494,15 +494,15 @@ export const AssetsView: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-[#F28C28]/40 dark:border-[#F28C28]/40 shadow-xs relative overflow-hidden">
+            <div className="p-5 rounded-lg bg-white dark:bg-slate-900 border border-brand-gold/40 shadow-xs relative overflow-hidden">
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
                 <span>{isAr ? 'صافي القيمة الدفترية' : 'Net Book Value (NBV)'}</span>
-                <ShieldCheck className="w-5 h-5 text-[#F28C28]" />
+                <ShieldCheck className="w-5 h-5 text-brand-gold" />
               </div>
-              <div className="text-2xl font-black text-[#0B1F3A] dark:text-[#F28C28] mt-2">
+              <div className="text-2xl font-black text-brand-navy dark:text-brand-gold mt-2">
                 {totalNBV.toLocaleString()} <span className="text-xs font-normal text-slate-400">SAR</span>
               </div>
-              <div className="text-[11px] text-[#F28C28] font-semibold mt-1">
+              <div className="text-[11px] text-brand-gold font-semibold mt-1">
                 <span>Balance Sheet Carrying Amount</span>
               </div>
             </div>
@@ -966,7 +966,7 @@ export const AssetsView: React.FC = () => {
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Calculator className="w-5 h-5 text-purple-600" />
-                <span>{isAr ? 'محرك الإهلاك التلقائي والجدولة' : 'Automatic Depreciation Run & Schedule Engine'}</span>
+                <span>{isAr ? 'الإهلاك والجدولة' : 'Depreciation and schedules'}</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 Generates depreciation schedules, posts periodic depreciation entries, and publishes DEPRECIATION_POSTED events.
@@ -1038,7 +1038,7 @@ export const AssetsView: React.FC = () => {
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <ArrowRightLeft className="w-5 h-5 text-purple-600" />
-                <span>{isAr ? 'محرك تحويلات وتغيير مواقع الأصول' : 'Asset Transfer & Allocation Engine'}</span>
+                <span>{isAr ? 'تحويلات وتخصيص الأصول' : 'Asset transfers and allocation'}</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 Transfers assets across Companies, Branches, Departments, Cost Centers, Locations, and Responsible Employees.

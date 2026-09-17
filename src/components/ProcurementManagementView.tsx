@@ -540,7 +540,7 @@ export const ProcurementManagementView: React.FC = () => {
   const totalPoSpend = purchaseOrders.reduce((sum, p) => sum + p.totalAmount, 0);
 
   return (
-    <div className="purchasing-procurement p-4 sm:p-6 text-slate-100 min-h-screen space-y-6">
+    <div className="purchasing-procurement procurement-workspace p-4 sm:p-6 text-slate-100 min-h-screen space-y-6">
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-800 pb-4 gap-4">
         <div>
@@ -552,11 +552,11 @@ export const ProcurementManagementView: React.FC = () => {
               <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
                 Procurement & Purchasing
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  SAP S/4HANA Aligned
+                  Operational workspace
                 </span>
               </h1>
               <p className="text-sm text-slate-400">
-                End-to-End Enterprise Procurement Lifecycle & Event-Driven Purchasing Domain
+                Requisitions, quotations, purchase orders, receipts, and supplier returns
               </p>
             </div>
           </div>

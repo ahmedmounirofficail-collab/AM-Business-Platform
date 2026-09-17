@@ -29,6 +29,41 @@ import {
   MRPPlannedOrder,
   MRPSummaryReport
 } from '../types/manufacturing';
+import {
+  BatchLot,
+  BinLocation,
+  InventoryItem,
+  InventoryRuleConfig,
+  SerialNumber,
+  StockLedgerEntry,
+  StockQuant,
+  Warehouse
+} from '../types';
+import { InventoryExecutionEngine, ExecutionEngineResult } from './inventoryExecutionEngine';
+
+export interface ManufacturingInventoryContext {
+  items: InventoryItem[];
+  warehouses: Warehouse[];
+  bins: BinLocation[];
+  quants: StockQuant[];
+  batchLots: BatchLot[];
+  serials: SerialNumber[];
+  stockLedgerEntries: StockLedgerEntry[];
+  config?: InventoryRuleConfig;
+  userName: string;
+  userRole?: string;
+}
+
+function restoreInventoryContext(
+  context: ManufacturingInventoryContext,
+  snapshots: { items: string; quants: string; ledgerLength: number }
+): void {
+  const itemSnapshot = JSON.parse(snapshots.items) as InventoryItem[];
+  const quantSnapshot = JSON.parse(snapshots.quants) as StockQuant[];
+  context.items.splice(0, context.items.length, ...itemSnapshot);
+  context.quants.splice(0, context.quants.length, ...quantSnapshot);
+  context.stockLedgerEntries.splice(snapshots.ledgerLength);
+}
 
 export class ManufacturingEngine {
   private static workOrderCounter = 1000;
@@ -540,6 +575,7 @@ export class ManufacturingEngine {
       componentSku: string;
       quantity: number;
     }[];
+    inventoryContext?: ManufacturingInventoryContext;
   }): {
     updatedWorkOrder: ProductionWorkOrder;
     goodsIssueRecord: GoodsIssueRecord;
@@ -547,6 +583,7 @@ export class ManufacturingEngine {
       eventType: string;
       payload: any;
     };
+    inventoryMovements?: ExecutionEngineResult[];
   } {
     const { workOrder, issuedBy, issueType, items } = params;
 
@@ -569,6 +606,12 @@ export class ManufacturingEngine {
     const goodsIssueLines = [];
 
     const updatedMaterials = [...workOrder.materials];
+    const inventoryMovements: ExecutionEngineResult[] = [];
+    const inventorySnapshots = params.inventoryContext ? {
+      items: JSON.stringify(params.inventoryContext.items),
+      quants: JSON.stringify(params.inventoryContext.quants),
+      ledgerLength: params.inventoryContext.stockLedgerEntries.length
+    } : undefined;
 
     for (const item of items) {
       if (item.quantity <= 0) {
@@ -606,6 +649,35 @@ export class ManufacturingEngine {
         unitCost: mat.unitCost,
         warehouseId: mat.warehouseId
       });
+    }
+
+    if (params.inventoryContext) {
+      try {
+        for (const line of goodsIssueLines) {
+          const movement = InventoryExecutionEngine.executeGoodsIssue({
+            tenantId: workOrder.tenantId,
+            companyId: workOrder.companyId,
+            itemSku: line.componentSku,
+            warehouseId: line.warehouseId,
+            quantity: line.quantity,
+            uom: line.uom,
+            unitCost: line.unitCost,
+            sourceDocumentType: 'ProductionGoodsIssue',
+            sourceDocumentId: issueNumber,
+            sourceDocumentNumber: issueNumber,
+            reference: workOrder.orderNumber,
+            reason: `Material issue to Work Order ${workOrder.orderNumber}`,
+            userId: issuedBy,
+            userName: params.inventoryContext.userName,
+            userRole: params.inventoryContext.userRole
+          }, params.inventoryContext);
+          inventoryMovements.push(movement);
+          params.inventoryContext.stockLedgerEntries.unshift(movement.stockLedgerEntry);
+        }
+      } catch (error) {
+        if (inventorySnapshots) restoreInventoryContext(params.inventoryContext, inventorySnapshots);
+        throw error;
+      }
     }
 
     // Update WIP & actual costs
@@ -656,7 +728,7 @@ export class ManufacturingEngine {
       }
     };
 
-    return { updatedWorkOrder, goodsIssueRecord, financialEvent };
+    return { updatedWorkOrder, goodsIssueRecord, financialEvent, inventoryMovements };
   }
 
   // ==========================================
@@ -781,6 +853,7 @@ export class ManufacturingEngine {
     receivedQuantity: number;
     receivedBy: string;
     destinationWarehouseId: string;
+    inventoryContext?: ManufacturingInventoryContext;
   }): {
     updatedWorkOrder: ProductionWorkOrder;
     goodsReceiptRecord: GoodsReceiptRecord;
@@ -788,6 +861,7 @@ export class ManufacturingEngine {
       eventType: string;
       payload: any;
     };
+    inventoryMovement?: ExecutionEngineResult;
   } {
     const { workOrder, receivedQuantity, receivedBy, destinationWarehouseId } = params;
 
@@ -822,6 +896,38 @@ export class ManufacturingEngine {
     const totalReceiptValue = Number((receivedQuantity * unitValuationCost).toFixed(2));
     if (totalReceiptValue > workOrder.costSummary.wipBalance) {
       throw new Error('Finished goods receipt value exceeds the available WIP balance');
+    }
+
+    let inventoryMovement: ExecutionEngineResult | undefined;
+    const inventorySnapshots = params.inventoryContext ? {
+      items: JSON.stringify(params.inventoryContext.items),
+      quants: JSON.stringify(params.inventoryContext.quants),
+      ledgerLength: params.inventoryContext.stockLedgerEntries.length
+    } : undefined;
+    if (params.inventoryContext) {
+      try {
+        inventoryMovement = InventoryExecutionEngine.executeGoodsReceipt({
+          tenantId: workOrder.tenantId,
+          companyId: workOrder.companyId,
+          itemSku: workOrder.finishedGoodSku,
+          warehouseId: destinationWarehouseId,
+          quantity: receivedQuantity,
+          uom: workOrder.uom,
+          unitCost: unitValuationCost,
+          sourceDocumentType: 'ProductionGoodsReceipt',
+          sourceDocumentId: receiptNumber,
+          sourceDocumentNumber: receiptNumber,
+          reference: workOrder.orderNumber,
+          reason: `Finished goods receipt from Work Order ${workOrder.orderNumber}`,
+          userId: receivedBy,
+          userName: params.inventoryContext.userName,
+          userRole: params.inventoryContext.userRole
+        }, params.inventoryContext);
+        params.inventoryContext.stockLedgerEntries.unshift(inventoryMovement.stockLedgerEntry);
+      } catch (error) {
+        if (inventorySnapshots) restoreInventoryContext(params.inventoryContext, inventorySnapshots);
+        throw error;
+      }
     }
 
     // Reduce WIP balance by standard receipt value
@@ -880,7 +986,7 @@ export class ManufacturingEngine {
       }
     };
 
-    return { updatedWorkOrder, goodsReceiptRecord, financialEvent };
+    return { updatedWorkOrder, goodsReceiptRecord, financialEvent, inventoryMovement };
   }
 
   // ==========================================

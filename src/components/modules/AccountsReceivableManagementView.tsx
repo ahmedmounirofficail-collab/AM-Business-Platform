@@ -4,7 +4,7 @@ import {
   Clock, DollarSign, Calendar, Filter, Plus, Search, RefreshCw, CheckCircle2,
   XCircle, AlertTriangle, ArrowRight, Download, FileSpreadsheet, Eye, ChevronRight,
   TrendingUp, TrendingDown, BookOpen, Layers, CheckSquare, RotateCcw, AlertOctagon,
-  Lock, Unlock, ShieldCheck, Scale, History, UserCheck
+  Lock, Unlock, ShieldCheck, Scale, History, UserCheck, Printer, X
 } from 'lucide-react';
 import { ApiClient } from '../../services/apiClient';
 import { 
@@ -41,6 +41,15 @@ export const AccountsReceivableManagementView: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [invoiceDateFrom, setInvoiceDateFrom] = useState<string>('');
+  const [invoiceDateTo, setInvoiceDateTo] = useState<string>('');
+  const [invoiceSort, setInvoiceSort] = useState<'date' | 'dueDate' | 'total'>('date');
+  const [invoiceSortDescending, setInvoiceSortDescending] = useState<boolean>(true);
+  const [invoicePage, setInvoicePage] = useState<number>(1);
+  const [selectedInvoice, setSelectedInvoice] = useState<CustomerSalesInvoice | null>(null);
+  const [invoiceDetail, setInvoiceDetail] = useState<any | null>(null);
+  const [invoiceDetailLoading, setInvoiceDetailLoading] = useState<boolean>(false);
+  const invoicePageSize = 10;
 
   // Modals & Active Selections
   const [showNewCustomerModal, setShowNewCustomerModal] = useState<boolean>(false);
@@ -56,8 +65,8 @@ export const AccountsReceivableManagementView: React.FC = () => {
     name: '',
     nameAr: '',
     category: 'ENTERPRISE',
-    taxNumber: '310' + Math.floor(1000000000 + Math.random() * 9000000000) + '00003',
-    crNumber: '1010' + Math.floor(100000 + Math.random() * 900000),
+    taxNumber: '',
+    crNumber: '',
     email: '',
     phone: '',
     address: '',
@@ -71,19 +80,25 @@ export const AccountsReceivableManagementView: React.FC = () => {
 
   const [newInvoice, setNewInvoice] = useState({
     customerId: '',
-    salesOrderRef: 'SO-2026-' + Math.floor(1000 + Math.random() * 9000),
+    salesOrderRef: '',
+    invoiceDate: new Date().toISOString().split('T')[0],
+    dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
     currency: 'SAR',
     lineItemName: 'Enterprise SaaS License & Professional Services',
     unitPrice: 100000,
     quantity: 1
   });
+  const [invoiceLines, setInvoiceLines] = useState([
+    { itemCode: '', itemName: '', quantity: 1, unitPrice: 0, discountRate: 0 }
+  ]);
 
   const [newReceipt, setNewReceipt] = useState({
     customerId: '',
+    receiptDate: new Date().toISOString().split('T')[0],
     paymentMethod: 'WIRE_TRANSFER',
     receiptType: 'STANDARD',
-    totalAmount: 50000,
-    referenceNumber: 'WIRE-' + Math.floor(100000 + Math.random() * 900000),
+    totalAmount: 0,
+    referenceNumber: '',
     autoAllocate: true
   });
 
@@ -216,10 +231,11 @@ export const AccountsReceivableManagementView: React.FC = () => {
   // Handlers for Form Submissions
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newCustomer.code.trim()) return alert('يرجى إدخال رمز العميل');
     try {
       await ApiClient.createARCustomer({
         ...newCustomer,
-        code: newCustomer.code || `CUST-AR-${Math.floor(100 + Math.random() * 900)}`
+        code: newCustomer.code.trim()
       });
       setShowNewCustomerModal(false);
       loadARData();
@@ -231,30 +247,36 @@ export const AccountsReceivableManagementView: React.FC = () => {
   const handleCreateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newInvoice.customerId) return alert('Please select a customer');
+    if (invoiceLines.some(line => !line.itemCode.trim() || !line.itemName.trim() || line.quantity <= 0 || line.unitPrice <= 0)) {
+      return alert('يرجى استكمال بيانات كل بند بقيمة صحيحة');
+    }
     try {
       const lineTaxRes = TaxEngine.resolveTaxRate({ countryOrJurisdiction: 'SA' });
-      const lineTaxCalc = TaxEngine.calculateLineTax({
-        quantity: newInvoice.quantity,
-        unitPrice: newInvoice.unitPrice,
-        taxRate: lineTaxRes.taxRate
-      });
       await ApiClient.createARSalesInvoice({
         customerId: newInvoice.customerId,
         salesOrderRef: newInvoice.salesOrderRef,
+        invoiceDate: newInvoice.invoiceDate,
+        dueDate: newInvoice.dueDate,
         currency: newInvoice.currency,
-        lines: [
-          {
-            itemCode: 'ITEM-SaaS-01',
-            itemName: newInvoice.lineItemName,
-            quantity: newInvoice.quantity,
-            unitPrice: newInvoice.unitPrice,
+        lines: invoiceLines.map(line => {
+          const lineTaxCalc = TaxEngine.calculateLineTax({
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            taxRate: lineTaxRes.taxRate,
+            discountPercent: line.discountRate
+          });
+          return {
+            itemCode: line.itemCode.trim(),
+            itemName: line.itemName.trim(),
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
             taxRate: lineTaxRes.taxRate,
             taxAmount: lineTaxCalc.taxAmount,
-            discountRate: 0,
-            discountAmount: 0,
+            discountRate: line.discountRate / 100,
+            discountAmount: lineTaxCalc.discountAmount,
             lineTotal: lineTaxCalc.grossAmount
-          }
-        ]
+          };
+        })
       });
       setShowNewInvoiceModal(false);
       loadARData();
@@ -263,9 +285,63 @@ export const AccountsReceivableManagementView: React.FC = () => {
     }
   };
 
+  const handleOpenInvoice = async (invoice: CustomerSalesInvoice) => {
+    setSelectedInvoice(invoice);
+    setInvoiceDetailLoading(true);
+    try {
+      setInvoiceDetail(await ApiClient.getARSalesInvoice(invoice.id));
+    } catch (err: any) {
+      alert(err.message || 'Unable to load invoice detail');
+      setSelectedInvoice(null);
+    } finally {
+      setInvoiceDetailLoading(false);
+    }
+  };
+
+  const handleReceiveForInvoice = (invoice: CustomerSalesInvoice) => {
+    setNewReceipt(current => ({
+      ...current,
+      customerId: invoice.customerId,
+      totalAmount: invoice.remainingAmount,
+      autoAllocate: true
+    }));
+    setSelectedInvoice(null);
+    setShowNewReceiptModal(true);
+  };
+
+  const handleCreditNoteForInvoice = (invoice: CustomerSalesInvoice) => {
+    setNewCreditNote(current => ({
+      ...current,
+      customerId: invoice.customerId,
+      invoiceId: invoice.id,
+      subtotal: Math.max(0, Math.round((invoice.remainingAmount / 1.15) * 100) / 100)
+    }));
+    setSelectedInvoice(null);
+    setShowNewCreditNoteModal(true);
+  };
+
+  const handlePrintInvoice = async (invoice: CustomerSalesInvoice) => {
+    try {
+      const html = await ApiClient.getARSalesInvoicePrint(invoice.id);
+      const printWindow = window.open('', '_blank', 'noopener,noreferrer');
+      if (!printWindow) {
+        alert('تعذر فتح نافذة الطباعة. يرجى السماح بالنوافذ المنبثقة.');
+        return;
+      }
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+    } catch (err: any) {
+      alert(err.message || 'تعذر تحميل مستند الطباعة');
+    }
+  };
+
   const handleCreateReceipt = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newReceipt.customerId) return alert('Please select a customer');
+    if (newReceipt.totalAmount <= 0) return alert('يرجى إدخال مبلغ دفعة موجب');
+    if (!newReceipt.referenceNumber.trim()) return alert('يرجى إدخال مرجع الدفعة الفعلي');
     try {
       await ApiClient.createARReceipt(newReceipt);
       setShowNewReceiptModal(false);
@@ -358,6 +434,25 @@ export const AccountsReceivableManagementView: React.FC = () => {
     : 0;
 
   const overdueRatio = totalOpenAR > 0 ? ((totalOverdueAR / totalOpenAR) * 100).toFixed(1) : '0.0';
+  const filteredInvoices = invoices
+    .filter(invoice => statusFilter === 'ALL' || invoice.paymentStatus === statusFilter)
+    .filter(invoice => !searchTerm ||
+      invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (invoice.salesOrderRef || '').toLowerCase().includes(searchTerm.toLowerCase()))
+    .filter(invoice => !invoiceDateFrom || invoice.invoiceDate >= invoiceDateFrom)
+    .filter(invoice => !invoiceDateTo || invoice.invoiceDate <= invoiceDateTo)
+    .sort((a, b) => {
+      const left = invoiceSort === 'total'
+        ? a.grandTotal
+        : new Date(invoiceSort === 'date' ? a.invoiceDate : a.dueDate).getTime();
+      const right = invoiceSort === 'total'
+        ? b.grandTotal
+        : new Date(invoiceSort === 'date' ? b.invoiceDate : b.dueDate).getTime();
+      return (left - right) * (invoiceSortDescending ? -1 : 1);
+    });
+  const invoicePageCount = Math.max(1, Math.ceil(filteredInvoices.length / invoicePageSize));
+  const visibleInvoices = filteredInvoices.slice((invoicePage - 1) * invoicePageSize, invoicePage * invoicePageSize);
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 p-4 md:p-6 space-y-6">
@@ -754,91 +849,101 @@ export const AccountsReceivableManagementView: React.FC = () => {
 
       {/* 3. SALES INVOICES TAB */}
       {activeTab === 'invoices' && (
-        <div className="bg-slate-800/50 border border-slate-700/60 p-5 rounded-xl space-y-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <div className="relative w-full sm:w-64">
-                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                <input 
-                  type="text"
-                  placeholder="Search invoice #, customer..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-900 text-slate-200 text-xs pl-9 pr-3 py-2 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-slate-900 text-slate-200 text-xs px-3 py-2 rounded-lg border border-slate-700 focus:outline-none"
-              >
-                <option value="ALL">All Payment Statuses</option>
-                <option value="UNPAID">Unpaid</option>
-                <option value="PARTIALLY_PAID">Partially Paid</option>
-                <option value="PAID">Paid</option>
-                <option value="OVERDUE">Overdue</option>
-              </select>
+        <div className="bg-white border border-slate-200 p-5 rounded-lg space-y-4 text-slate-900 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-[#0B1D36]">الفواتير</h2>
+              <p className="text-xs text-slate-500 mt-1">الفواتير التجارية المنشورة من مصدر AR المعتمد</p>
             </div>
-
-            <button 
+            <button
               onClick={() => setShowNewInvoiceModal(true)}
-              className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#0B1D36] hover:bg-[#152d4e] text-white rounded-md text-xs font-semibold"
             >
-              <Plus className="w-4 h-4" /> Issue Sales Invoice
+              <Plus className="w-4 h-4" /> إنشاء فاتورة
             </button>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-700">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-2 bg-slate-50 border border-slate-200 p-3 rounded-md">
+            <label className="relative xl:col-span-2">
+              <span className="sr-only">بحث</span>
+              <Search className="w-4 h-4 absolute right-3 top-2.5 text-slate-400" />
+              <input type="search" placeholder="رقم الفاتورة أو العميل أو أمر البيع"
+                value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setInvoicePage(1); }}
+                className="w-full bg-white text-sm pr-9 pl-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-[#CAAF7D]" />
+            </label>
+            <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setInvoicePage(1); }}
+              className="bg-white text-sm px-3 py-2 rounded-md border border-slate-300">
+              <option value="ALL">كل حالات الدفع</option>
+              <option value="UNPAID">غير مدفوعة</option>
+              <option value="PARTIALLY_PAID">مدفوعة جزئيًا</option>
+              <option value="PAID">مدفوعة</option>
+              <option value="OVERDUE">متأخرة</option>
+            </select>
+            <input type="date" value={invoiceDateFrom} onChange={e => { setInvoiceDateFrom(e.target.value); setInvoicePage(1); }}
+              className="bg-white text-sm px-3 py-2 rounded-md border border-slate-300" aria-label="من تاريخ" />
+            <input type="date" value={invoiceDateTo} onChange={e => { setInvoiceDateTo(e.target.value); setInvoicePage(1); }}
+              className="bg-white text-sm px-3 py-2 rounded-md border border-slate-300" aria-label="إلى تاريخ" />
+            <select value={invoiceSort} onChange={e => setInvoiceSort(e.target.value as typeof invoiceSort)}
+              className="bg-white text-sm px-3 py-2 rounded-md border border-slate-300">
+              <option value="date">ترتيب: التاريخ</option>
+              <option value="dueDate">ترتيب: الاستحقاق</option>
+              <option value="total">ترتيب: الإجمالي</option>
+            </select>
+            <button type="button" onClick={() => { setSearchTerm(''); setStatusFilter('ALL'); setInvoiceDateFrom(''); setInvoiceDateTo(''); setInvoicePage(1); }}
+              className="text-xs text-slate-600 hover:text-[#0B1D36] border border-slate-300 rounded-md px-3 py-2 bg-white">
+              مسح الفلاتر
+            </button>
+          </div>
+
+          <div className="overflow-x-auto border border-slate-200 rounded-md">
+            <table className="w-full text-right text-xs text-slate-700 min-w-[980px]">
+              <thead className="bg-[#0B1D36] text-white text-[11px]">
                 <tr>
-                  <th className="p-3">Invoice #</th>
-                  <th className="p-3">Customer Name</th>
-                  <th className="p-3">Invoice / Due Date</th>
-                  <th className="p-3">Subtotal</th>
-                  <th className="p-3">VAT (15%)</th>
-                  <th className="p-3">Grand Total</th>
-                  <th className="p-3">Remaining</th>
-                  <th className="p-3">ZATCA Status</th>
-                  <th className="p-3">Payment Status</th>
+                  <th className="p-3 font-semibold">رقم الفاتورة</th>
+                  <th className="p-3 font-semibold">العميل</th>
+                  <th className="p-3 font-semibold">التاريخ</th>
+                  <th className="p-3 font-semibold">الاستحقاق</th>
+                  <th className="p-3 font-semibold text-left">الإجمالي</th>
+                  <th className="p-3 font-semibold text-left">المدفوع</th>
+                  <th className="p-3 font-semibold text-left">الرصيد</th>
+                  <th className="p-3 font-semibold">الحالة</th>
+                  <th className="p-3 font-semibold">إجراء</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/50">
-                {invoices
-                  .filter(inv => 
-                    (statusFilter === 'ALL' || inv.paymentStatus === statusFilter) &&
-                    (inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) || inv.customerName.toLowerCase().includes(searchTerm.toLowerCase()))
-                  )
-                  .map(inv => (
-                    <tr key={inv.id} className="hover:bg-slate-700/30 transition-colors">
-                      <td className="p-3 font-mono text-emerald-400 font-bold">{inv.invoiceNumber}</td>
-                      <td className="p-3 font-bold text-white">{inv.customerName}</td>
-                      <td className="p-3 text-slate-400 text-[11px]">
-                        Issued: {inv.invoiceDate}<br />Due: {inv.dueDate}
-                      </td>
-                      <td className="p-3 font-semibold text-slate-300">{inv.subtotal.toLocaleString()} SAR</td>
-                      <td className="p-3 text-slate-400">{inv.taxTotal.toLocaleString()} SAR</td>
-                      <td className="p-3 font-bold text-white">{inv.grandTotal.toLocaleString()} SAR</td>
-                      <td className="p-3 font-bold text-emerald-400">{inv.remainingAmount.toLocaleString()} SAR</td>
-                      <td className="p-3">
-                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
-                          <CheckCircle2 className="w-3 h-3" /> ZATCA Phase-2 Valid
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold border ${
-                          inv.paymentStatus === 'PAID' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
-                          inv.paymentStatus === 'OVERDUE' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' :
-                          'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                        }`}>
-                          {inv.paymentStatus}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+              <tbody className="divide-y divide-slate-200">
+                {visibleInvoices.map(invoice => (
+                  <tr key={invoice.id} className="hover:bg-slate-50">
+                    <td className="p-3 font-mono text-[#0B1D36] font-semibold" dir="ltr">{invoice.invoiceNumber}</td>
+                    <td className="p-3 font-medium">{invoice.customerName}</td>
+                    <td className="p-3" dir="ltr">{invoice.invoiceDate}</td>
+                    <td className="p-3" dir="ltr">{invoice.dueDate}</td>
+                    <td className="p-3 text-left font-semibold" dir="ltr">{invoice.grandTotal.toLocaleString()} {invoice.currency}</td>
+                    <td className="p-3 text-left" dir="ltr">{invoice.paidAmount.toLocaleString()} {invoice.currency}</td>
+                    <td className="p-3 text-left font-semibold text-[#0B1D36]" dir="ltr">{invoice.remainingAmount.toLocaleString()} {invoice.currency}</td>
+                    <td className="p-3"><span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[10px] font-semibold ${
+                      invoice.paymentStatus === 'PAID' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      invoice.paymentStatus === 'OVERDUE' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                      invoice.paymentStatus === 'PARTIALLY_PAID' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      'bg-slate-100 text-slate-700 border-slate-200'
+                    }`}>{invoice.paymentStatus === 'PAID' ? 'مدفوعة' : invoice.paymentStatus === 'PARTIALLY_PAID' ? 'مدفوعة جزئيًا' : invoice.paymentStatus === 'OVERDUE' ? 'متأخرة' : 'غير مدفوعة'}</span></td>
+                    <td className="p-3">
+                      <button onClick={() => handleOpenInvoice(invoice)} className="inline-flex items-center gap-1 text-[#0B1D36] hover:text-[#CAAF7D] font-semibold">
+                        <Eye className="w-4 h-4" /> عرض
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {visibleInvoices.length === 0 && <tr><td colSpan={9} className="p-10 text-center text-slate-500">لا توجد فواتير للمعايير المحددة.</td></tr>}
               </tbody>
             </table>
+          </div>
+          <div className="flex items-center justify-between text-xs text-slate-500">
+            <span>{filteredInvoices.length} فاتورة</span>
+            <div className="flex items-center gap-2">
+              <button disabled={invoicePage <= 1} onClick={() => setInvoicePage(page => page - 1)} className="px-3 py-1.5 border border-slate-300 rounded-md disabled:opacity-40">السابق</button>
+              <span>{invoicePage} / {invoicePageCount}</span>
+              <button disabled={invoicePage >= invoicePageCount} onClick={() => setInvoicePage(page => page + 1)} className="px-3 py-1.5 border border-slate-300 rounded-md disabled:opacity-40">التالي</button>
+            </div>
           </div>
         </div>
       )}
@@ -1401,45 +1506,109 @@ export const AccountsReceivableManagementView: React.FC = () => {
         </div>
       )}
 
+      {selectedInvoice && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4" dir="rtl">
+          <div className="bg-white text-slate-900 w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-lg border border-slate-200 shadow-xl">
+            <div className="sticky top-0 z-10 bg-[#0B1D36] text-white px-5 py-4 flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs text-slate-300">مستند مالي · فاتورة مبيعات</div>
+                <h2 className="text-xl font-bold mt-1" dir="ltr">{selectedInvoice.invoiceNumber}</h2>
+                <div className="text-xs text-slate-300 mt-1">{selectedInvoice.customerName} · {selectedInvoice.invoiceDate}</div>
+              </div>
+              <button onClick={() => setSelectedInvoice(null)} className="p-1.5 hover:bg-white/10 rounded" aria-label="إغلاق"><X className="w-5 h-5" /></button>
+            </div>
+            {invoiceDetailLoading ? (
+              <div className="p-12 text-center text-slate-500">جارٍ تحميل تفاصيل الفاتورة...</div>
+            ) : invoiceDetail && (
+              <div className="p-5 space-y-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">{selectedInvoice.status === 'POSTED' ? 'منشورة' : selectedInvoice.status}</span>
+                  <button onClick={() => handleReceiveForInvoice(selectedInvoice)} disabled={selectedInvoice.remainingAmount <= 0} className="px-3 py-2 bg-[#0B1D36] text-white rounded-md text-xs font-semibold disabled:opacity-40">استلام دفعة</button>
+                  <button onClick={() => handleCreditNoteForInvoice(selectedInvoice)} disabled={selectedInvoice.remainingAmount <= 0} className="px-3 py-2 border border-[#CAAF7D] text-[#0B1D36] rounded-md text-xs font-semibold disabled:opacity-40">إصدار إشعار دائن</button>
+                  <button onClick={() => handlePrintInvoice(selectedInvoice)} className="inline-flex items-center gap-1 px-3 py-2 border border-slate-300 rounded-md text-xs font-semibold"><Printer className="w-4 h-4" /> طباعة</button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {[
+                    ['الإجمالي', `${selectedInvoice.grandTotal.toLocaleString()} ${selectedInvoice.currency}`],
+                    ['المدفوع', `${selectedInvoice.paidAmount.toLocaleString()} ${selectedInvoice.currency}`],
+                    ['الرصيد', `${selectedInvoice.remainingAmount.toLocaleString()} ${selectedInvoice.currency}`],
+                    ['التاريخ', selectedInvoice.invoiceDate],
+                    ['الاستحقاق', selectedInvoice.dueDate]
+                  ].map(([label, value]) => <div key={label} className="border border-slate-200 rounded-md p-3"><div className="text-[11px] text-slate-500">{label}</div><div className="font-semibold mt-1" dir={label === 'الإجمالي' || label === 'المدفوع' || label === 'الرصيد' ? 'ltr' : 'auto'}>{value}</div></div>)}
+                </div>
+                <section>
+                  <h3 className="font-bold text-[#0B1D36] mb-2">الأصناف</h3>
+                  <div className="overflow-x-auto border border-slate-200 rounded-md">
+                    <table className="w-full text-xs min-w-[650px]">
+                      <thead className="bg-slate-50"><tr><th className="p-2 text-right">الصنف</th><th className="p-2 text-right">الوصف</th><th className="p-2 text-left">الكمية</th><th className="p-2 text-left">السعر</th><th className="p-2 text-left">الضريبة</th><th className="p-2 text-left">الإجمالي</th></tr></thead>
+                      <tbody className="divide-y divide-slate-200">{selectedInvoice.lines.map(line => <tr key={line.id}><td className="p-2 font-mono" dir="ltr">{line.itemCode}</td><td className="p-2">{line.itemName}</td><td className="p-2 text-left" dir="ltr">{line.quantity}</td><td className="p-2 text-left" dir="ltr">{line.unitPrice.toLocaleString()}</td><td className="p-2 text-left" dir="ltr">{line.taxAmount.toLocaleString()}</td><td className="p-2 text-left font-semibold" dir="ltr">{line.lineTotal.toLocaleString()}</td></tr>)}</tbody>
+                    </table>
+                  </div>
+                </section>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <section className="border border-slate-200 rounded-md p-4">
+                    <h3 className="font-bold text-[#0B1D36] mb-3">الأثر المحاسبي</h3>
+                    <dl className="space-y-2 text-xs">
+                      <div className="flex justify-between gap-3"><dt className="text-slate-500">Journal Entry</dt><dd className="font-mono" dir="ltr">{invoiceDetail.accounting?.journal?.entryNumber || selectedInvoice.journalEntryId || 'غير متاح'}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-slate-500">Financial Event</dt><dd className="font-mono" dir="ltr">{selectedInvoice.financialEventId || 'غير متاح'}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-slate-500">الفترة</dt><dd dir="ltr">{invoiceDetail.accounting?.financialEvent ? `${invoiceDetail.accounting.financialEvent.fiscalYear}/${invoiceDetail.accounting.financialEvent.periodNumber}` : 'غير متاح'}</dd></div>
+                    </dl>
+                  </section>
+                  <section className="border border-slate-200 rounded-md p-4">
+                    <h3 className="font-bold text-[#0B1D36] mb-3">المدفوعات</h3>
+                    {invoiceDetail.payments?.length ? <ul className="space-y-2 text-xs">{invoiceDetail.payments.map((payment: ReceiptAllocationRecord) => <li key={payment.id} className="flex justify-between"><span className="font-mono" dir="ltr">{payment.receiptNumber}</span><strong dir="ltr">{payment.allocatedAmount.toLocaleString()} {selectedInvoice.currency}</strong></li>)}</ul> : <p className="text-xs text-slate-500">لا توجد دفعات مرتبطة.</p>}
+                  </section>
+                </div>
+                {selectedInvoice.salesOrderRef && <div className="text-xs text-slate-500">أمر البيع المرتبط: <span className="font-mono text-slate-800" dir="ltr">{selectedInvoice.salesOrderRef}</span></div>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* MODAL: NEW CUSTOMER */}
       {showNewCustomerModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white">Create New Customer Master</h3>
-              <button onClick={() => setShowNewCustomerModal(false)} className="text-slate-400 hover:text-white">✕</button>
+          <div className="bg-white text-slate-900 border border-slate-200 rounded-lg p-6 w-full max-w-3xl space-y-4 shadow-xl" dir="rtl">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+              <h3 className="text-lg font-bold text-[#0B1D36]">إنشاء عميل</h3>
+              <button onClick={() => setShowNewCustomerModal(false)} className="text-slate-400 hover:text-slate-900" aria-label="إغلاق"><X className="w-5 h-5" /></button>
             </div>
 
             <form onSubmit={handleCreateCustomer} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-400 mb-1">Customer Commercial Name *</label>
+                <label className="block text-slate-600 mb-1 font-semibold">رمز العميل *</label>
+                <input type="text" required value={newCustomer.code} onChange={e => setNewCustomer({ ...newCustomer, code: e.target.value })} className="w-full bg-white border border-slate-300 p-2.5 rounded-md font-mono" />
+              </div>
+              <div>
+                <label className="block text-slate-600 mb-1 font-semibold">الاسم التجاري للعميل *</label>
                 <input 
                   type="text" 
                   required
                   value={newCustomer.name}
                   onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-white"
-                  placeholder="e.g. Saudi Telecom Company (STC)"
+                  className="w-full bg-white border border-slate-300 p-2.5 rounded-md"
+                  placeholder="اسم العميل"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">VAT Number (15 Digit)</label>
+                  <label className="block text-slate-600 mb-1 font-semibold">الرقم الضريبي</label>
                   <input 
                     type="text" 
                     value={newCustomer.taxNumber}
                     onChange={(e) => setNewCustomer({ ...newCustomer, taxNumber: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-white font-mono"
+                    className="w-full bg-white border border-slate-300 p-2.5 rounded-md font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">CR Number</label>
+                  <label className="block text-slate-600 mb-1 font-semibold">السجل التجاري</label>
                   <input 
                     type="text" 
                     value={newCustomer.crNumber}
                     onChange={(e) => setNewCustomer({ ...newCustomer, crNumber: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-white font-mono"
+                    className="w-full bg-white border border-slate-300 p-2.5 rounded-md font-mono"
                   />
                 </div>
               </div>
@@ -1476,89 +1645,110 @@ export const AccountsReceivableManagementView: React.FC = () => {
 
       {/* MODAL: NEW SALES INVOICE */}
       {showNewInvoiceModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white">Issue ZATCA-Compliant Sales Invoice</h3>
-              <button onClick={() => setShowNewInvoiceModal(false)} className="text-slate-400 hover:text-white">✕</button>
+        <div className="fixed inset-0 bg-slate-950/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white text-slate-900 border border-slate-200 rounded-lg p-6 w-full max-w-5xl space-y-4 shadow-xl" dir="rtl">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+              <h3 className="text-lg font-bold text-[#0B1D36]">إنشاء فاتورة</h3>
+              <button onClick={() => setShowNewInvoiceModal(false)} className="text-slate-400 hover:text-slate-900"><X className="w-5 h-5" /></button>
             </div>
 
             <form onSubmit={handleCreateInvoice} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-400 mb-1">Select Customer *</label>
+                <label className="block text-slate-600 mb-1 font-semibold">العميل *</label>
                 <select
                   required
                   value={newInvoice.customerId}
                   onChange={(e) => setNewInvoice({ ...newInvoice, customerId: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-white"
+                  className="w-full bg-white border border-slate-300 p-2.5 rounded-md text-slate-900"
                 >
-                  <option value="">-- Choose Customer --</option>
+                  <option value="">-- اختر العميل --</option>
                   {customers.map(c => (
                     <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
                   ))}
                 </select>
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1">Line Item Description *</label>
-                <input 
-                  type="text" 
-                  required
-                  value={newInvoice.lineItemName}
-                  onChange={(e) => setNewInvoice({ ...newInvoice, lineItemName: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-white"
-                />
+              {newInvoice.customerId && (() => {
+                const customer = customers.find(item => item.id === newInvoice.customerId);
+                return customer ? <div className="grid grid-cols-3 gap-3 bg-slate-50 border border-slate-200 rounded-md p-3">
+                  <div><div className="text-slate-500">الرصيد الحالي</div><strong dir="ltr">{customer.currentBalance.toLocaleString()} {customer.currency}</strong></div>
+                  <div><div className="text-slate-500">حد الائتمان</div><strong dir="ltr">{customer.creditLimit.toLocaleString()} {customer.currency}</strong></div>
+                  <div><div className="text-slate-500">شروط السداد</div><strong>{customer.paymentTermsCode}</strong></div>
+                </div> : null;
+              })()}
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div><label className="block text-slate-600 mb-1 font-semibold">مرجع أمر البيع</label><input type="text" value={newInvoice.salesOrderRef} onChange={e => setNewInvoice({ ...newInvoice, salesOrderRef: e.target.value })} className="w-full bg-white border border-slate-300 p-2.5 rounded-md" placeholder="اختياري" /></div>
+                <div><label className="block text-slate-600 mb-1 font-semibold">تاريخ الفاتورة *</label><input required type="date" value={newInvoice.invoiceDate} onChange={e => setNewInvoice({ ...newInvoice, invoiceDate: e.target.value })} className="w-full bg-white border border-slate-300 p-2.5 rounded-md" /></div>
+                <div><label className="block text-slate-600 mb-1 font-semibold">تاريخ الاستحقاق *</label><input required type="date" value={newInvoice.dueDate} onChange={e => setNewInvoice({ ...newInvoice, dueDate: e.target.value })} className="w-full bg-white border border-slate-300 p-2.5 rounded-md" /></div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1">Unit Price (SAR)</label>
-                  <input 
-                    type="number" 
-                    value={newInvoice.unitPrice}
-                    onChange={(e) => setNewInvoice({ ...newInvoice, unitPrice: Number(e.target.value) })}
-                    className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-white"
-                  />
+              <div className="border border-slate-200 rounded-md overflow-hidden">
+                <div className="flex items-center justify-between bg-[#0B1D36] text-white px-3 py-2">
+                  <span className="font-semibold">بنود الفاتورة</span>
+                  <button type="button" onClick={() => setInvoiceLines(lines => [...lines, { itemCode: '', itemName: '', quantity: 1, unitPrice: 0, discountRate: 0 }])} className="inline-flex items-center gap-1 text-xs text-[#CAAF7D]">
+                    <Plus className="w-3.5 h-3.5" /> إضافة بند
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-slate-400 mb-1">Quantity</label>
-                  <input 
-                    type="number" 
-                    value={newInvoice.quantity}
-                    onChange={(e) => setNewInvoice({ ...newInvoice, quantity: Number(e.target.value) })}
-                    className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-white"
-                  />
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-xs">
+                    <thead className="bg-slate-50 text-slate-500">
+                      <tr>
+                        <th className="p-2 text-right">رمز الصنف</th>
+                        <th className="p-2 text-right">الوصف</th>
+                        <th className="p-2 text-left">الكمية</th>
+                        <th className="p-2 text-left">سعر الوحدة</th>
+                        <th className="p-2 text-left">الخصم %</th>
+                        <th className="p-2 text-left">الإجمالي</th>
+                        <th className="p-2" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {invoiceLines.map((line, index) => {
+                        const taxRes = TaxEngine.resolveTaxRate({ countryOrJurisdiction: 'SA' });
+                        const lineCalc = TaxEngine.calculateLineTax({ quantity: line.quantity, unitPrice: line.unitPrice, taxRate: taxRes.taxRate, discountPercent: line.discountRate });
+                        const updateLine = (patch: Partial<typeof line>) => setInvoiceLines(lines => lines.map((current, lineIndex) => lineIndex === index ? { ...current, ...patch } : current));
+                        return (
+                          <tr key={index}>
+                            <td className="p-2"><input aria-label={`رمز الصنف ${index + 1}`} value={line.itemCode} onChange={e => updateLine({ itemCode: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1.5" /></td>
+                            <td className="p-2"><input aria-label={`وصف البند ${index + 1}`} required value={line.itemName} onChange={e => updateLine({ itemName: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1.5" /></td>
+                            <td className="p-2"><input aria-label={`كمية البند ${index + 1}`} type="number" min="0.01" step="0.01" value={line.quantity} onChange={e => updateLine({ quantity: Number(e.target.value) })} className="w-24 border border-slate-300 rounded px-2 py-1.5 text-left" /></td>
+                            <td className="p-2"><input aria-label={`سعر البند ${index + 1}`} type="number" min="0.01" step="0.01" value={line.unitPrice || ''} onChange={e => updateLine({ unitPrice: Number(e.target.value) })} className="w-28 border border-slate-300 rounded px-2 py-1.5 text-left" /></td>
+                            <td className="p-2"><input aria-label={`خصم البند ${index + 1}`} type="number" min="0" max="100" step="0.01" value={line.discountRate} onChange={e => updateLine({ discountRate: Number(e.target.value) })} className="w-20 border border-slate-300 rounded px-2 py-1.5 text-left" /></td>
+                            <td className="p-2 text-left font-semibold" dir="ltr">{lineCalc.grossAmount.toLocaleString()} SAR</td>
+                            <td className="p-2 text-center"><button type="button" disabled={invoiceLines.length === 1} onClick={() => setInvoiceLines(lines => lines.filter((_, lineIndex) => lineIndex !== index))} className="text-rose-600 disabled:opacity-30" aria-label="حذف البند"><X className="w-4 h-4" /></button></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
               {(() => {
                 const taxRes = TaxEngine.resolveTaxRate({ countryOrJurisdiction: 'SA' });
-                const lineCalc = TaxEngine.calculateLineTax({
-                  quantity: newInvoice.quantity,
-                  unitPrice: newInvoice.unitPrice,
-                  taxRate: taxRes.taxRate
-                });
+                const totals = invoiceLines.reduce((result, line) => {
+                  const lineCalc = TaxEngine.calculateLineTax({ quantity: line.quantity, unitPrice: line.unitPrice, taxRate: taxRes.taxRate, discountPercent: line.discountRate });
+                  return {
+                    subtotal: result.subtotal + lineCalc.subtotal,
+                    discount: result.discount + lineCalc.discountAmount,
+                    tax: result.tax + lineCalc.taxAmount,
+                    total: result.total + lineCalc.grossAmount
+                  };
+                }, { subtotal: 0, discount: 0, tax: 0, total: 0 });
                 return (
-                  <div className="p-3 bg-slate-800 rounded border border-slate-700 text-[11px] text-slate-300 space-y-1">
-                    <div className="flex justify-between">
-                      <span>Subtotal:</span>
-                      <span>{lineCalc.taxableAmount.toLocaleString()} SAR</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>VAT ({Math.round(taxRes.taxRate * 100)}% Standard Rate):</span>
-                      <span>{lineCalc.taxAmount.toLocaleString()} SAR</span>
-                    </div>
-                    <div className="flex justify-between font-extrabold text-emerald-400 text-xs pt-1 border-t border-slate-700">
-                      <span>Grand Total (Inc. VAT):</span>
-                      <span>{lineCalc.grossAmount.toLocaleString()} SAR</span>
-                    </div>
+                  <div className="p-4 bg-slate-50 rounded-md border border-slate-200 text-xs text-slate-700 space-y-2 max-w-sm mr-auto">
+                    <div className="flex justify-between"><span>الإجمالي قبل الخصم:</span><span dir="ltr">{totals.subtotal.toLocaleString()} SAR</span></div>
+                    <div className="flex justify-between"><span>الخصم:</span><span dir="ltr">{totals.discount.toLocaleString()} SAR</span></div>
+                    <div className="flex justify-between"><span>الضريبة ({Math.round(taxRes.taxRate * 100)}%):</span><span dir="ltr">{totals.tax.toLocaleString()} SAR</span></div>
+                    <div className="flex justify-between font-extrabold text-[#0B1D36] text-sm pt-2 border-t border-slate-200"><span>الإجمالي:</span><span dir="ltr">{totals.total.toLocaleString()} SAR</span></div>
                   </div>
                 );
               })()}
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
-                <button type="button" onClick={() => setShowNewInvoiceModal(false)} className="px-4 py-2 bg-slate-800 text-slate-300 rounded font-semibold">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded font-bold">Issue & Post Invoice</button>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                <button type="button" onClick={() => setShowNewInvoiceModal(false)} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-md font-semibold">إلغاء</button>
+                <button type="submit" className="px-4 py-2 bg-[#0B1D36] text-white rounded-md font-bold">حفظ ونشر الفاتورة</button>
               </div>
             </form>
           </div>
@@ -1595,10 +1785,16 @@ export const AccountsReceivableManagementView: React.FC = () => {
                   <label className="block text-slate-400 mb-1">Receipt Amount (SAR)</label>
                   <input 
                     type="number" 
+                    min="0.01"
+                    required
                     value={newReceipt.totalAmount}
                     onChange={(e) => setNewReceipt({ ...newReceipt, totalAmount: Number(e.target.value) })}
                     className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-white"
                   />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1">Payment Date</label>
+                  <input type="date" required value={newReceipt.receiptDate} onChange={e => setNewReceipt({ ...newReceipt, receiptDate: e.target.value })} className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-white" />
                 </div>
                 <div>
                   <label className="block text-slate-400 mb-1">Payment Method</label>
@@ -1615,9 +1811,10 @@ export const AccountsReceivableManagementView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">Bank Reference Number</label>
+                <label className="block text-slate-400 mb-1">Bank Reference Number *</label>
                 <input 
                   type="text" 
+                  required
                   value={newReceipt.referenceNumber}
                   onChange={(e) => setNewReceipt({ ...newReceipt, referenceNumber: e.target.value })}
                   className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-white font-mono"

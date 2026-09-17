@@ -12,6 +12,10 @@
     --border-light: #DDE3EA;
     --text-primary: #172334;
     --text-muted: #667386;
+    --state-success: #047857;
+    --state-warning: #b45309;
+    --state-error: #b91c1c;
+    --state-info: #1d4ed8;
   }
 
   .dark {
@@ -119,6 +123,51 @@
   background-color: #FFFFFF;
   border: 1px solid #E2E8F0;
   border-radius: 0.5rem;
+}
+
+/* Shared ERP surface primitives. Modules should use these instead of inventing
+   a new card, control, or table treatment for each screen. */
+.am-page {
+  padding: 1.25rem;
+}
+
+.am-surface {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+}
+
+.am-section-title {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.am-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--text-primary);
+  font-size: 0.75rem;
+}
+
+.am-table thead {
+  background: var(--brand-navy);
+  color: #fff;
+}
+
+.am-table th,
+.am-table td {
+  padding: 0.7rem 0.75rem;
+  text-align: start;
+}
+
+.am-table tbody tr {
+  border-block-end: 1px solid var(--border-light);
+}
+
+.am-table tbody tr:hover {
+  background: color-mix(in srgb, var(--bg-light) 88%, var(--brand-navy));
 }
 
 /* Shared AM form language for controls used across the platform. */
@@ -281,10 +330,10 @@
 
 .purchasing-procurement > div:first-child,
 .purchasing-payables > div:first-child {
-  border-radius: 0.875rem;
+  border-radius: 0.5rem;
   padding: 1.25rem;
   background: var(--bg-surface);
-  box-shadow: 0 8px 24px rgb(15 23 42 / 0.08);
+  box-shadow: 0 2px 8px rgb(15 23 42 / 0.05);
 }
 
 .purchasing-procurement > div:first-child {
@@ -338,11 +387,115 @@
 
 .purchasing-procurement .rounded-xl,
 .purchasing-payables .rounded-xl {
-  border-radius: 0.875rem;
+  border-radius: 0.5rem;
 }
 
 .purchasing-procurement .shadow-lg {
   box-shadow: 0 8px 18px rgb(37 99 235 / 0.18);
+}
+
+/* Align operational workspaces with the same quiet ERP surface language. */
+.sales-workspace,
+.inventory-workspace,
+.treasury-workspace,
+.accounting-workspace,
+.ap-workspace,
+.procurement-workspace,
+.assets-workspace,
+.hr-workspace,
+.projects-workspace,
+.reports-workspace {
+  --module-radius: 0.5rem;
+}
+
+.sales-workspace .rounded-xl,
+.inventory-workspace .rounded-xl,
+.treasury-workspace .rounded-xl,
+.accounting-workspace .rounded-xl,
+.ap-workspace .rounded-xl,
+.procurement-workspace .rounded-xl,
+.assets-workspace .rounded-xl,
+.hr-workspace .rounded-xl,
+.projects-workspace .rounded-xl,
+.reports-workspace .rounded-xl {
+  border-radius: var(--module-radius);
+}
+
+.sales-workspace .rounded-2xl,
+.inventory-workspace .rounded-2xl,
+.treasury-workspace .rounded-2xl,
+.accounting-workspace .rounded-2xl,
+.ap-workspace .rounded-2xl,
+.procurement-workspace .rounded-2xl,
+.assets-workspace .rounded-2xl,
+.hr-workspace .rounded-2xl,
+.projects-workspace .rounded-2xl,
+.reports-workspace .rounded-2xl {
+  border-radius: var(--module-radius);
+}
+
+.sales-workspace .shadow-xl,
+.inventory-workspace .shadow-2xl,
+.treasury-workspace .shadow-xl,
+.accounting-workspace .shadow-2xl,
+.ap-workspace .shadow-xl,
+.procurement-workspace .shadow-2xl,
+.assets-workspace .shadow-2xl,
+.hr-workspace .shadow-2xl,
+.projects-workspace .shadow-2xl,
+.reports-workspace .shadow-2xl {
+  box-shadow: 0 4px 14px rgb(15 23 42 / 0.08);
+}
+
+.sales-workspace table,
+.inventory-workspace table,
+.treasury-workspace table,
+.accounting-workspace table,
+.ap-workspace table,
+.procurement-workspace table,
+.assets-workspace table,
+.hr-workspace table,
+.projects-workspace table,
+.reports-workspace table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.sales-workspace th,
+.inventory-workspace th,
+.treasury-workspace th,
+.accounting-workspace th,
+.ap-workspace th,
+.procurement-workspace th,
+.assets-workspace th,
+.hr-workspace th,
+.projects-workspace th,
+.reports-workspace th {
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+}
+
+.sales-workspace td,
+.sales-workspace th,
+.inventory-workspace td,
+.inventory-workspace th,
+.treasury-workspace td,
+.treasury-workspace th,
+.accounting-workspace td,
+.accounting-workspace th,
+.ap-workspace td,
+.ap-workspace th,
+.procurement-workspace td,
+.procurement-workspace th,
+.assets-workspace td,
+.assets-workspace th,
+.hr-workspace td,
+.hr-workspace th,
+.projects-workspace td,
+.projects-workspace th,
+.reports-workspace td,
+.reports-workspace th {
+  min-height: 2.5rem;
 }
 
 @media (max-width: 640px) {

@@ -84,6 +84,8 @@ export interface CustomerSalesInvoice {
   paymentStatus: ARPaymentStatus;
   zatcaUuid?: string;
   zatcaQrHash?: string;
+  journalEntryId?: string;
+  financialEventId?: string;
   hash: string;
   createdBy: string;
   createdAt: string;
@@ -109,6 +111,8 @@ export interface CustomerCreditNote {
   taxAmount?: number;
   grandTotal: number;
   totalAmount?: number;
+  journalEntryId?: string;
+  financialEventId?: string;
   status: 'DRAFT' | 'POSTED' | 'CANCELLED';
   hash: string;
   createdBy: string;

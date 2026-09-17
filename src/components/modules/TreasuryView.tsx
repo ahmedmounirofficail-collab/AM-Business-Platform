@@ -572,7 +572,7 @@ export const TreasuryView: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="treasury-workspace p-6 space-y-6 max-w-7xl mx-auto">
       
       {/* Header Banner */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
@@ -587,13 +587,13 @@ export const TreasuryView: React.FC = () => {
                   {isAr ? 'إدارة البنوك والخزينة والسيولة النقدية' : 'Banking, Cash Management & Treasury'}
                 </h1>
                 <span className="px-2.5 py-0.5 text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 rounded-full border border-emerald-200 dark:border-emerald-800">
-                  Phase 2.9 (FI-BL / TRM)
+                  {isAr ? 'الخزينة والسيولة' : 'Treasury operations'}
                 </span>
               </div>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                 {isAr 
-                  ? 'إدارة الحسابات البنكية، الخزائن النقدية، الشيكات والكمبيالات، التسويات البنكية، وتوقعات السيولة النقدية IFRS / IAS 7'
-                  : 'Enterprise Cash Management, Multi-Currency Bank Accounts, Cheques & PDCs, Automated Reconciliation & Cash Forecasting'}
+                  ? 'إدارة الحسابات البنكية، الخزائن النقدية، الشيكات، التسويات البنكية، وتوقعات السيولة النقدية'
+                  : 'Bank accounts, cash operations, cheques, reconciliation, and liquidity forecasting'}
               </p>
             </div>
           </div>

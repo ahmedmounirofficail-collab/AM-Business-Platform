@@ -236,6 +236,8 @@ export class PostingRulesEngine {
       {
         tenantId,
         companyId,
+        fiscalYear: event.fiscalYear ?? event.payload?.fiscalYear,
+        fiscalPeriod: event.fiscalPeriod ?? event.periodNumber ?? event.payload?.fiscalPeriod ?? event.payload?.periodNumber,
         eventType: event.eventType,
         sourceDocumentType,
         sourceDocumentId,

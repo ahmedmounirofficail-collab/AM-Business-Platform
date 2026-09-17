@@ -394,6 +394,11 @@ export class ApiClient {
     return this.request('/reports/inventory-valuation');
   }
 
+  static async getReconciliationReport(params?: { companyId?: string; period?: string }): Promise<any> {
+    const query = new URLSearchParams(params as any).toString();
+    return this.request(`/reports/reconciliation${query ? `?${query}` : ''}`);
+  }
+
   // Background Processing Jobs Engine SDK
   static async getBackgroundJobs(): Promise<any[]> {
     return this.request('/jobs');
@@ -1581,6 +1586,25 @@ export class ApiClient {
     return this.request('/ar/invoices');
   }
 
+  static async getARSalesInvoice(id: string): Promise<any> {
+    return this.request(`/ar/invoices/${id}`);
+  }
+
+  static getARSalesInvoicePrintUrl(id: string): string {
+    return `/api/v1/ar/invoices/${id}/print`;
+  }
+
+  static async getARSalesInvoicePrint(id: string): Promise<string> {
+    const response = await fetch(this.getARSalesInvoicePrintUrl(id), {
+      headers: this.token ? { Authorization: `Bearer ${this.token}` } : {}
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(body.error || `HTTP ${response.status}`);
+    }
+    return response.text();
+  }
+
   static async createARSalesInvoice(invoiceData: any): Promise<any> {
     return this.request('/ar/invoices', {
       method: 'POST',
@@ -1804,6 +1828,17 @@ export class ApiClient {
     return this.request(`/gl/fiscal-periods/${id}/reopen`, {
       method: 'POST',
       body: JSON.stringify({ reopenedBy, reason })
+    });
+  }
+
+  static async getGLClosingChecklist(periodId: string): Promise<any> {
+    return this.request(`/gl/closing/checklist/${periodId}`);
+  }
+
+  static async closeGLPeriod(periodId: string, closedBy?: string): Promise<any> {
+    return this.request('/gl/closing/period-close', {
+      method: 'POST',
+      body: JSON.stringify({ periodId, closedBy })
     });
   }
 
@@ -2760,6 +2795,3 @@ export class ApiClient {
     return this.request('/branding/platform');
   }
 }
-
-
-

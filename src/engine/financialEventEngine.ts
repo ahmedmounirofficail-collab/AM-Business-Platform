@@ -19,6 +19,9 @@ import { PostingRulesEngine } from './postingRulesEngine';
 export interface PublishEventParams {
   tenantId: string;
   companyId: string;
+  fiscalYear?: number;
+  fiscalPeriod?: number;
+  validateFiscalPeriod?: (tenantId: string, companyId: string, fiscalYear: number, fiscalPeriod: number) => void;
   eventType: FinancialEventType;
   sourceDocumentType: string;
   sourceDocumentId: string;
@@ -34,6 +37,7 @@ export interface PublishEventParams {
   dimensions?: AccountingDimensions;
   triggeredBy?: string;
   triggeredByName?: string;
+  idempotencyKey?: string;
 }
 
 export class FinancialEventEngine {
@@ -52,6 +56,9 @@ export class FinancialEventEngine {
     const {
       tenantId,
       companyId,
+      fiscalYear,
+      fiscalPeriod,
+      validateFiscalPeriod,
       eventType,
       sourceDocumentType,
       sourceDocumentId,
@@ -66,8 +73,20 @@ export class FinancialEventEngine {
       description,
       dimensions = {},
       triggeredBy = 'usr-001',
-      triggeredByName = 'Financial Events Engine'
+      triggeredByName = 'Financial Events Engine',
+      idempotencyKey
     } = params;
+
+    if (!tenantId?.trim() || !companyId?.trim()) {
+      throw new Error('Financial event tenant and company are required');
+    }
+    if (!Number.isInteger(fiscalYear) || fiscalYear < 1) {
+      throw new Error('Financial event fiscal year is required and must be valid');
+    }
+    if (!Number.isInteger(fiscalPeriod) || fiscalPeriod < 1 || fiscalPeriod > 13) {
+      throw new Error('Financial event fiscal period is required and must be between 1 and 13');
+    }
+    validateFiscalPeriod?.(tenantId, companyId, fiscalYear, fiscalPeriod);
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -78,7 +97,8 @@ export class FinancialEventEngine {
       fe => fe.tenantId === tenantId &&
             fe.companyId === companyId &&
             fe.sourceDocumentType === sourceDocumentType &&
-            (fe.sourceDocumentId === sourceDocumentId || fe.sourceDocumentNumber === sourceDocumentNumber) &&
+            (fe.sourceDocumentId === sourceDocumentId || fe.sourceDocumentNumber === sourceDocumentNumber ||
+             (idempotencyKey && (fe as any).idempotencyKey === idempotencyKey)) &&
             fe.status === 'PROCESSED'
     );
     if (existingFE) {
@@ -159,6 +179,9 @@ export class FinancialEventEngine {
         triggeredBy,
         status: 'FAILED'
       };
+      failedEvent.fiscalYear = fiscalYear;
+      failedEvent.periodNumber = fiscalPeriod;
+      if (idempotencyKey) (failedEvent as any).idempotencyKey = idempotencyKey;
       financialEventsList.unshift(failedEvent);
       return { journalEntry: null, financialEvent: failedEvent };
     }
@@ -650,6 +673,8 @@ export class FinancialEventEngine {
       entryNumber,
       date: today,
       postingDate: today,
+      fiscalYear,
+      periodNumber: fiscalPeriod,
       reference: sourceDocumentNumber,
       description: description || `Auto-posted via Financial Events Engine for ${sourceDocumentType} ${sourceDocumentNumber}`,
       status: 'Posted',
@@ -708,6 +733,8 @@ export class FinancialEventEngine {
         exchangeRate,
         baseCurrencyAmount: amount * exchangeRate,
         eventDate: today,
+        fiscalYear,
+        periodNumber: fiscalPeriod,
         description: `Failed GL Posting: ${glError.message}`,
         status: 'FAILED',
         triggeredBy
@@ -745,11 +772,15 @@ export class FinancialEventEngine {
       exchangeRate,
       baseCurrencyAmount: amount * exchangeRate,
       eventDate: today,
+      fiscalYear,
+      periodNumber: fiscalPeriod,
       description: newJE.description,
       triggeredBy,
       status: 'PROCESSED',
-      journalEntryId: newJE.id
+      journalEntryId: newJE.id,
+      createdAt: new Date().toISOString()
     };
+    if (idempotencyKey) (finEvent as any).idempotencyKey = idempotencyKey;
 
     financialEventsList.unshift(finEvent);
 

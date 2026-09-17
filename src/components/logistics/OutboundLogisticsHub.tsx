@@ -170,11 +170,12 @@ export const OutboundLogisticsHub: React.FC = () => {
   const handleCreateDelivery = (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      throw new Error('Outbound delivery creation requires a persisted sales order and line reference.');
       OutboundLogisticsEngine.createOutboundDelivery({
         tenantId,
         companyId,
-        salesOrderId: `so-${Date.now().toString().slice(-4)}`,
-        salesOrderNumber: `SO-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        salesOrderId: '',
+        salesOrderNumber: '',
         customerId: 'cust-501',
         customerName: newDelCustomer,
         shippingAddress: 'Main Commercial District, Cairo',
@@ -187,7 +188,7 @@ export const OutboundLogisticsHub: React.FC = () => {
         plannedArrivalDate: new Date(Date.now() + 86400000).toISOString(),
         lines: [
           {
-            salesOrderLineId: `sol-${Date.now()}`,
+            salesOrderLineId: '',
             sku: newDelSku,
             description: newDelSku.includes('LAPTOP') ? 'Enterprise Laptop' : 'Hardware Unit',
             orderedQuantity: Number(newDelQty),
@@ -374,11 +375,12 @@ export const OutboundLogisticsHub: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setIsCreateDeliveryOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-all shadow-sm shadow-blue-500/20"
+            disabled
+            title="Create from a persisted sales order is not available in this workspace."
+            className="flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-500 rounded-lg text-sm font-semibold cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
-            Create Outbound Delivery
+            Create from Sales Order
           </button>
           <button
             onClick={loadData}

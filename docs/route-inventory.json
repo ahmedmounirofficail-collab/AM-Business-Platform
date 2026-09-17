@@ -1,0 +1,37 @@
+{
+  "generatedAt": "2026-09-17",
+  "authority": "server.ts production route declarations",
+  "classificationNote": "This is a machine-readable baseline, not a heuristic security proof. Fixture middleware coverage and production handler coverage are separate.",
+  "routes": [
+    {
+      "route": "POST /api/v1/financial-events/publish",
+      "handler": "server.ts financial event publish handler",
+      "mutation": "financialEvents, journalEntries, account balances, audit callback",
+      "permission": "route authorization middleware",
+      "scope": "actor-derived tenant/company scope",
+      "period": "domain FinancialEventEngine validation; HTTP period guard applies only when period is resolvable",
+      "transaction": "in-memory GL balance rollback only; no shared inventory/WIP transaction",
+      "classification": "sensitive financial mutation"
+    },
+    {
+      "route": "POST /api/v1/gl/manual-journal",
+      "handler": "server.ts manual journal handler",
+      "mutation": "journal entries and account balances",
+      "permission": "route authorization middleware",
+      "scope": "actor-derived tenant/company scope",
+      "period": "HTTP period guard plus handler/domain validation where supplied",
+      "transaction": "GL-local rollback, not cross-domain transaction",
+      "classification": "sensitive financial mutation"
+    },
+    {
+      "route": "POST /api/v1/inventory/count-sessions",
+      "handler": "server.ts inventory count-session handler",
+      "mutation": "inventory count-session state",
+      "permission": "route authorization middleware",
+      "scope": "warehouse/company scope",
+      "period": "HTTP period guard when a target period is supplied",
+      "transaction": "not a manufacturing cross-domain transaction",
+      "classification": "sensitive inventory mutation"
+    }
+  ]
+}

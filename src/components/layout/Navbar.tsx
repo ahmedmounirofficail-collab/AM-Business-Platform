@@ -141,7 +141,7 @@ export const Navbar: React.FC = () => {
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[280px]">
-                {branding?.tradingName || (isAr ? 'نظام تشغيل وإدارة الموارد السحابي' : 'Cloud Enterprise SaaS & ERP Engine')}
+                {branding?.tradingName || (isAr ? 'إدارة متكاملة للأعمال والعمليات المالية' : 'Integrated business and financial operations')}
               </p>
             </div>
           </div>
@@ -268,12 +268,12 @@ export const Navbar: React.FC = () => {
 
             {/* Notification Center Popover */}
             {notifOpen && (
-              <div className="absolute right-0 ltr:right-0 rtl:left-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 ltr:right-0 rtl:left-0 mt-2 w-80 sm:w-96 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-3">
                   <div className="flex items-center gap-2">
                     <Bell className="w-4 h-4 text-[#CAAF7D]" />
                     <span className="font-bold text-xs text-slate-900 dark:text-white">
-                      {isAr ? 'مركز التنبيهات والأحداث' : 'Enterprise Notification Hub'}
+                      {isAr ? 'التنبيهات' : 'Notifications'}
                     </span>
                   </div>
                   {unreadNotificationsCount > 0 && (
@@ -295,7 +295,7 @@ export const Navbar: React.FC = () => {
                         if (n.actionModule) setActiveModule(n.actionModule);
                         setNotifOpen(false);
                       }}
-                      className={`p-3 rounded-xl border text-xs cursor-pointer transition space-y-1 ${
+                      className={`p-3 rounded-md border text-xs cursor-pointer transition space-y-1 ${
                         n.read
                           ? 'bg-slate-50/50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-500'
                           : 'bg-white dark:bg-slate-800 border-amber-500/30 font-semibold text-slate-900 dark:text-white shadow-xs'
@@ -431,4 +431,3 @@ export const Navbar: React.FC = () => {
     </header>
   );
 };
-

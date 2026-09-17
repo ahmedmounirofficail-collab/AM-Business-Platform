@@ -180,7 +180,7 @@ export const InventoryView: React.FC = () => {
   const totalStockValuation = items.reduce((acc, i) => acc + (i.stockQty * i.costPrice), 0);
 
   return (
-    <div className="min-h-full bg-slate-50/70 p-4 sm:p-6 dark:bg-slate-950/40" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="inventory-workspace min-h-full bg-slate-50/70 p-4 sm:p-6 dark:bg-slate-950/40" dir={isAr ? 'rtl' : 'ltr'}>
       
       {/* Module Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">

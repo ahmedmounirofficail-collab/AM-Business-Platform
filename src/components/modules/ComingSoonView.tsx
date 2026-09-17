@@ -176,11 +176,11 @@ export const ComingSoonView: React.FC<ComingSoonViewProps> = ({ moduleId }) => {
       <div className="p-8 rounded-2xl bg-[#0B1F3A] text-white shadow-sm relative overflow-hidden border border-[#153258]">
         <div className="relative z-10 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="px-3 py-1 rounded-full bg-[#F28C28] text-slate-950 font-bold text-[10px] uppercase tracking-wider font-mono">
+            <span className="px-3 py-1 rounded-md bg-brand-gold text-slate-950 font-bold text-[10px] uppercase tracking-wider font-mono">
               {isAr ? meta.categoryAr : meta.categoryEn} • {isAr ? 'قيد التطوير المقنن' : 'Enterprise Roadmap'}
             </span>
             <div className="flex items-center gap-2 text-xs text-amber-200/90 font-mono">
-              <Clock className="w-4 h-4 text-[#F28C28]" />
+              <Clock className="w-4 h-4 text-brand-gold" />
               <span>Target: {meta.versionTarget}</span>
             </div>
           </div>
@@ -196,11 +196,12 @@ export const ComingSoonView: React.FC<ComingSoonViewProps> = ({ moduleId }) => {
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <button
-              onClick={() => alert(isAr ? 'تم تسجيل طلبك لإخطار مسؤولي النظام عند تفعيل الوحدة.' : 'Notification request logged for Administrator.')}
-              className="min-h-[44px] px-5 py-2.5 rounded-2xl bg-[#F28C28] hover:bg-[#d9791c] text-slate-950 font-bold text-xs transition flex items-center gap-2 cursor-pointer shadow-lg"
+              disabled
+              title={isAr ? 'هذه الوحدة غير متاحة حاليًا' : 'This module is not available yet'}
+              className="min-h-[44px] px-5 py-2.5 rounded-lg bg-slate-200/20 text-slate-300 font-bold text-xs cursor-not-allowed flex items-center gap-2 border border-white/10"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{isAr ? 'طلب إخطار التفعيل والمشاركة في الإصدار التجريبي' : 'Request Early Beta Access & Notification'}</span>
+              <span>{isAr ? 'غير متاح حاليًا' : 'Not available yet'}</span>
             </button>
 
             <button

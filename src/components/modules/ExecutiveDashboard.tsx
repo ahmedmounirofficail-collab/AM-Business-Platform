@@ -174,10 +174,6 @@ export const ExecutiveDashboard: React.FC = () => {
       }
     });
 
-    // 6. Gross Profit
-    const estimatedCogs = totalInventoryValuation > 0 ? (grossSales * 0.65) : (totalPurchases * 0.7);
-    const grossProfit = Math.max(0, netSales - estimatedCogs);
-
     return {
       grossSales,
       salesReturns,
@@ -190,8 +186,7 @@ export const ExecutiveDashboard: React.FC = () => {
       totalInventoryValuation,
       lowStockCount,
       cashBalance,
-      bankBalance,
-      grossProfit
+      bankBalance
     };
   }, [invoices, purchaseInvoices, inventory, accounts]);
 
@@ -294,8 +289,8 @@ export const ExecutiveDashboard: React.FC = () => {
   const unpaidBills = purchaseInvoices.filter(pi => pi.status !== 'PAID' && pi.paymentStatus !== 'PAID');
 
   return (
-    <div className="p-6 space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+    <div className="p-5 lg:p-6 space-y-5">
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             {activeCompany?.name || (isAr ? 'الشركة الحالية' : 'Current company')} · {currency}
@@ -331,7 +326,7 @@ export const ExecutiveDashboard: React.FC = () => {
           { label: isAr ? 'الذمم الدائنة' : 'Accounts payable', value: metrics.totalPayables, icon: Truck, tone: 'amber' },
           { label: isAr ? 'النقدية والبنوك' : 'Cash and bank', value: metrics.cashBalance + metrics.bankBalance, icon: Wallet, tone: 'slate' }
         ].map(({ label, value, icon: Icon, tone }) => (
-          <div key={label} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl">
+          <div key={label} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg">
             <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
               <span>{label}</span>
               <Icon className={`w-4 h-4 ${
@@ -349,7 +344,7 @@ export const ExecutiveDashboard: React.FC = () => {
         ))}
       </section>
 
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-xl">
+      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h2 className="font-bold text-slate-900 dark:text-white text-sm">{isAr ? 'الإيرادات والمصروفات' : 'Revenue and expenses'}</h2>
@@ -377,14 +372,14 @@ export const ExecutiveDashboard: React.FC = () => {
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-xl">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
           <div className="flex items-center justify-between mb-3"><h2 className="font-bold text-slate-900 dark:text-white text-sm">{isAr ? 'الذمم المدينة' : 'Receivables'}</h2><span className="text-xs text-slate-500">{unpaidInvoices.length} {isAr ? 'فاتورة' : 'invoices'}</span></div>
           <div className="space-y-2">
             {unpaidInvoices.slice(0, 4).map(inv => <div key={inv.id} className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800 last:border-0 text-xs"><span className="text-slate-600 dark:text-slate-300 truncate">{inv.invoiceNumber || inv.number || inv.id}</span><span className="font-mono font-semibold text-slate-900 dark:text-white">{Number(inv.remainingAmount ?? inv.grandTotal ?? inv.totalAmount ?? 0).toLocaleString()} {currency}</span></div>)}
             {unpaidInvoices.length === 0 && <p className="py-5 text-center text-xs text-slate-400">{isAr ? 'لا توجد ذمم مستحقة.' : 'No outstanding receivables.'}</p>}
           </div>
         </div>
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-xl">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
           <div className="flex items-center justify-between mb-3"><h2 className="font-bold text-slate-900 dark:text-white text-sm">{isAr ? 'الذمم الدائنة' : 'Payables'}</h2><span className="text-xs text-slate-500">{unpaidBills.length} {isAr ? 'فاتورة' : 'bills'}</span></div>
           <div className="space-y-2">
             {unpaidBills.slice(0, 4).map(pi => <div key={pi.id} className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800 last:border-0 text-xs"><span className="text-slate-600 dark:text-slate-300 truncate">{pi.invoiceNumber || pi.billNumber || pi.number || pi.id}</span><span className="font-mono font-semibold text-slate-900 dark:text-white">{Number(pi.remainingAmount ?? pi.totalAmount ?? pi.grandTotal ?? pi.amount ?? 0).toLocaleString()} {currency}</span></div>)}
@@ -393,7 +388,7 @@ export const ExecutiveDashboard: React.FC = () => {
         </div>
       </section>
 
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-xl">
+      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
         <div className="flex items-center justify-between mb-3"><h2 className="font-bold text-slate-900 dark:text-white text-sm">{isAr ? 'النشاط الأخير' : 'Recent activity'}</h2><button onClick={() => setActiveModule('accounting')} className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">{isAr ? 'الأستاذ العام' : 'General ledger'}</button></div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
           {journals.slice(0, 4).map(je => <div key={je.id} className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800 text-xs"><span className="truncate text-slate-600 dark:text-slate-300">{je.entryNumber || je.id} · {je.description || (isAr ? 'قيد محاسبي' : 'Journal entry')}</span><span className="font-mono font-semibold text-slate-900 dark:text-white">{Number(je.totalDebit || 0).toLocaleString()} {currency}</span></div>)}

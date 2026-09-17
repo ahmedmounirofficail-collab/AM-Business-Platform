@@ -39,17 +39,17 @@ export const HrPayrollView: React.FC = () => {
   const totalPayrollCost = employees.reduce((acc, e) => acc + e.basicSalary + e.housingAllowance + e.transportAllowance, 0);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="hr-workspace p-6 space-y-6">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            <span>{isAr ? 'إدارة الموارد البشرية والرواتب (HR & Payroll WPS)' : 'Human Resources & WPS Payroll'}</span>
+            <span>{isAr ? 'الموارد البشرية والرواتب' : 'Human resources and payroll'}</span>
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            {isAr ? 'سجل الموظفين، مسيرات الرواتب الشهرية، حماية الأجور، وتوليد قيود الرواتب التلقائية' : 'Employee master files, GOSI contributions, WPS payroll batch processing'}
+            {isAr ? 'سجل الموظفين والبدلات وحالة جاهزية الرواتب' : 'Employee records, allowances, and payroll readiness'}
           </p>
         </div>
 

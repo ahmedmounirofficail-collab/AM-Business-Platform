@@ -23,7 +23,7 @@
  */
 
 import { TaxEngine } from '../src/engine/taxEngine';
-import { FinancialEventEngine } from '../src/engine/financialEventEngine';
+import { FinancialEventEngine as DomainFinancialEventEngine } from '../src/engine/financialEventEngine';
 import { PostingRulesEngine } from '../src/engine/postingRulesEngine';
 import { Account, PostingRule, JournalEntry, FinancialEvent } from '../src/types';
 import { INITIAL_ACCOUNTS, INITIAL_POSTING_RULES } from '../src/data/mockDatabase';
@@ -45,6 +45,27 @@ function assert(condition: boolean, scenario: string, name: string, details?: st
     results.push({ scenario, name, passed: true, details });
     console.log(`✅ [PASS] Scenario ${scenario} -> ${name}`);
   }
+
+}
+
+function processTestFinancialEvent(
+    params: Parameters<typeof DomainFinancialEventEngine.processEvent>[0],
+    postingRules: PostingRule[],
+    accounts: Account[],
+    journalEntries: JournalEntry[],
+    financialEvents: FinancialEvent[],
+    generateDocNumFn: (tenantId: string, entityType: 'JE') => string,
+    recordAuditFn: (...args: any[]) => void
+  ) {
+    return DomainFinancialEventEngine.processEvent(
+      { ...params, fiscalYear: 2026, fiscalPeriod: 9 },
+      postingRules,
+      accounts,
+      journalEntries,
+      financialEvents,
+      generateDocNumFn,
+      recordAuditFn
+    );
 }
 
 // Helpers for clean test harnesses
@@ -93,7 +114,7 @@ async function runAccountingIntegritySuite() {
     const acc1040Before = h.accounts.find(a => a.code === '1040')!.balance;
     const acc2010Before = h.accounts.find(a => a.code === '2010')!.balance;
 
-    const res = FinancialEventEngine.processEvent(
+    const res = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -165,7 +186,7 @@ async function runAccountingIntegritySuite() {
     const acc4010Before = h.accounts.find(a => a.code === '4010')!.balance;
     const acc2020Before = h.accounts.find(a => a.code === '2020')!.balance;
 
-    const res = FinancialEventEngine.processEvent(
+    const res = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -232,7 +253,7 @@ async function runAccountingIntegritySuite() {
     const acc4010Before = h.accounts.find(a => a.code === '4010')!.balance;
     const acc2020Before = h.accounts.find(a => a.code === '2020')!.balance;
 
-    const res = FinancialEventEngine.processEvent(
+    const res = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -301,7 +322,7 @@ async function runAccountingIntegritySuite() {
     const acc1040Before = h.accounts.find(a => a.code === '1040')!.balance;
     const acc2010Before = h.accounts.find(a => a.code === '2010')!.balance;
 
-    const res = FinancialEventEngine.processEvent(
+    const res = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -363,7 +384,7 @@ async function runAccountingIntegritySuite() {
     const sc = 'E';
 
     // 1. Zero-rated sale
-    const zeroSaleRes = FinancialEventEngine.processEvent(
+    const zeroSaleRes = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -396,7 +417,7 @@ async function runAccountingIntegritySuite() {
     }
 
     // 2. Zero-rated purchase
-    const zeroPurchRes = FinancialEventEngine.processEvent(
+    const zeroPurchRes = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -437,7 +458,7 @@ async function runAccountingIntegritySuite() {
     const sc = 'F';
 
     // Exempt financial services sale
-    const exemptSaleRes = FinancialEventEngine.processEvent(
+    const exemptSaleRes = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -484,7 +505,7 @@ async function runAccountingIntegritySuite() {
     assert(lineCalc.total === 1140, sc, 'TaxEngine gross total equals 1,140');
 
     // Post to accounting
-    const res = FinancialEventEngine.processEvent(
+    const res = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -532,7 +553,7 @@ async function runAccountingIntegritySuite() {
     assert(lineCalc.taxAmount === 150, sc, 'Tax-exclusive tax is 150');
     assert(lineCalc.total === 1150, sc, 'Tax-exclusive gross is 1,150');
 
-    const res = FinancialEventEngine.processEvent(
+    const res = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -581,7 +602,7 @@ async function runAccountingIntegritySuite() {
     assert(lineCalc.taxAmount === 135, sc, 'Tax amount is 135 (15% on 900)');
     assert(lineCalc.total === 1035, sc, 'Gross total is 1,035');
 
-    const res = FinancialEventEngine.processEvent(
+    const res = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -631,7 +652,7 @@ async function runAccountingIntegritySuite() {
     assert(lineCalc.taxAmount === 337.5, sc, 'Tax amount is 337.50');
     assert(lineCalc.total === 2587.5, sc, 'Gross total is 2,587.50');
 
-    const res = FinancialEventEngine.processEvent(
+    const res = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -684,7 +705,7 @@ async function runAccountingIntegritySuite() {
     assert(docTax.taxTotal === 175, sc, 'Multi-line tax total is 175 (150+25+0+0)');
     assert(docTax.grandTotal === 2175, sc, 'Multi-line grand total is 2,175');
 
-    const res = FinancialEventEngine.processEvent(
+    const res = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -732,7 +753,7 @@ async function runAccountingIntegritySuite() {
     assert(lineCalc.taxAmount === 15.00, sc, 'Tax rounded to 2 decimals is exactly 15.00', `Got ${lineCalc.taxAmount}`);
     assert(lineCalc.total === 114.99, sc, 'Gross rounded to 2 decimals is exactly 114.99');
 
-    const res = FinancialEventEngine.processEvent(
+    const res = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -783,7 +804,7 @@ async function runAccountingIntegritySuite() {
     };
 
     // 1. Post event once
-    const res1 = FinancialEventEngine.processEvent(
+    const res1 = processTestFinancialEvent(
       eventPayload,
       h.postingRules,
       h.accounts,
@@ -800,7 +821,7 @@ async function runAccountingIntegritySuite() {
     const arBalanceAfterFirst = h.accounts.find(a => a.code === '1020')!.balance;
 
     // 2. Process same event second time
-    const res2 = FinancialEventEngine.processEvent(
+    const res2 = processTestFinancialEvent(
       eventPayload,
       h.postingRules,
       h.accounts,
@@ -833,7 +854,7 @@ async function runAccountingIntegritySuite() {
     const revBalanceBefore = h.accounts.find(a => a.code === '4010')!.balance;
 
     // Attempt to post with an invalid non-existent document type
-    const resFailed = FinancialEventEngine.processEvent(
+    const resFailed = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -934,7 +955,7 @@ async function runAccountingIntegritySuite() {
     const accABefore = h.accounts.find(a => a.code === '1020')!.balance;
 
     // Post an event for Company B
-    const resB = FinancialEventEngine.processEvent(
+    const resB = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-002',
@@ -981,7 +1002,7 @@ async function runAccountingIntegritySuite() {
       };
       h.postingRules.push(crossRule);
 
-      FinancialEventEngine.processEvent(
+      processTestFinancialEvent(
         {
           tenantId: 'ten-001',
           companyId: 'comp-001', // Company A event!
@@ -1018,7 +1039,7 @@ async function runAccountingIntegritySuite() {
     ];
     const calc = TaxEngine.calculateDocumentTaxes(items, undefined, undefined, 0, { countryOrJurisdiction: 'SA' });
 
-    const res = FinancialEventEngine.processEvent(
+    const res = processTestFinancialEvent(
       {
         tenantId: 'ten-001',
         companyId: 'comp-001',
@@ -1076,7 +1097,7 @@ async function runAccountingIntegritySuite() {
     const tenantId = 'ten-001';
     const companyId = 'comp-001';
 
-    const res = FinancialEventEngine.processEvent(
+    const res = processTestFinancialEvent(
       {
         tenantId,
         companyId,

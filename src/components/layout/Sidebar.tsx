@@ -92,7 +92,7 @@ export const Sidebar: React.FC = () => {
   const rawCategories: (NavCategory & { isVisible?: boolean })[] = [
     {
       titleEn: 'WORKSPACE',
-      titleAr: 'مساحة العمل والذكاء',
+      titleAr: 'مساحة العمل',
       items: [
         {
           id: 'dashboard',
@@ -232,7 +232,7 @@ export const Sidebar: React.FC = () => {
         {
           id: 'users_security',
           labelEn: 'Users & Access',
-          labelAr: 'المستخدمين والصلاحيات (RBAC)',
+          labelAr: 'المستخدمون والصلاحيات',
           icon: ShieldCheck
         }
       ]
@@ -267,8 +267,8 @@ export const Sidebar: React.FC = () => {
         },
         {
           id: 'platform_readiness',
-          labelEn: 'System Readiness',
-          labelAr: 'جاهزية المنصة التشغيلية',
+          labelEn: 'System status',
+          labelAr: 'حالة النظام',
           icon: ShieldCheck,
           badge: '100%',
           badgeColor: 'bg-emerald-600 text-white font-bold'
@@ -451,13 +451,13 @@ export const Sidebar: React.FC = () => {
           </div>
           <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">
             {branding?.tradingName || (isAr
-              ? 'نظام تشغيل المؤسسات وفق معايير IFRS مع التوطين الكامل'
-              : 'IFRS-Compliant Commercial ERP Engine')}
+              ? 'إدارة متكاملة للأعمال والعمليات المالية'
+              : 'Integrated business and financial operations')}
           </p>
           {(branding?.showPoweredBy ?? true) && (
             <div className="text-[9px] text-slate-400 pt-1.5 border-t border-slate-200 dark:border-slate-700/60 space-y-0.5">
               <div className="font-semibold text-slate-500 dark:text-slate-300">
-                {isAr ? 'مدعوم بواسطة إيه إم • أحمد منير' : 'Powered by AM Business OS • Ahmed Mounir'}
+                {isAr ? 'منصة إيه إم للأعمال' : 'AM Business Platform'}
               </div>
               <div className="text-[8.5px] text-[#CAAF7D] italic">
                 {isAr ? '«كل قرار ناجح يبدأ برقم صحيح»' : '"Every successful decision begins with an accurate number"'}

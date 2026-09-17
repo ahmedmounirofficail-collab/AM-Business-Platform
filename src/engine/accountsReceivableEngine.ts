@@ -127,7 +127,8 @@ export class AccountsReceivableEngine {
     currency: string = 'SAR',
     exchangeRate: number = 1.0,
     createdBy: string = 'usr-001',
-    existingInvoices: CustomerSalesInvoice[] = []
+    existingInvoices: CustomerSalesInvoice[] = [],
+    options: { invoiceDate?: string; dueDate?: string } = {}
   ): { invoice: CustomerSalesInvoice; auditRecord: ARAuditRecord } {
     if (salesOrderRef) {
       this.validateDuplicateInvoice(companyId, customerId, salesOrderRef, undefined, existingInvoices);
@@ -175,9 +176,15 @@ export class AccountsReceivableEngine {
 
     const grandTotal = subtotal + taxTotal;
     const now = new Date();
-    const invoiceDate = now.toISOString().split('T')[0];
+    const invoiceDate = options.invoiceDate || now.toISOString().split('T')[0];
     const dueObj = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    const dueDate = dueObj.toISOString().split('T')[0];
+    const dueDate = options.dueDate || dueObj.toISOString().split('T')[0];
+    if (!Number.isFinite(new Date(invoiceDate).getTime()) || !Number.isFinite(new Date(dueDate).getTime())) {
+      throw new Error('Invoice and due dates must be valid dates');
+    }
+    if (new Date(dueDate).getTime() < new Date(invoiceDate).getTime()) {
+      throw new Error('Due date cannot be before invoice date');
+    }
 
     const invNum = `INV-${now.getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
     const zatcaUuid = `ZATCA-UUID-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -446,7 +453,8 @@ export class AccountsReceivableEngine {
     allocationType: AllocationType,
     openInvoices: CustomerSalesInvoice[],
     targetInvoiceIds?: string[],
-    user: string = 'usr-001'
+    user: string = 'usr-001',
+    receiptReference?: { id: string; number: string }
   ): {
     allocations: ReceiptAllocationRecord[];
     updatedInvoices: CustomerSalesInvoice[];
@@ -467,8 +475,8 @@ export class AccountsReceivableEngine {
       targetPool = candidateInvoices.filter(inv => targetInvoiceIds.includes(inv.id));
     }
 
-    const receiptId = `rct-${Date.now()}`;
-    const receiptNum = `RCT-ALLOC-${Math.floor(1000 + Math.random() * 9000)}`;
+    const receiptId = receiptReference?.id || `rct-${Date.now()}`;
+    const receiptNum = receiptReference?.number || `RCT-ALLOC-${Math.floor(1000 + Math.random() * 9000)}`;
 
     for (const inv of targetPool) {
       if (unallocated <= 0) break;
@@ -548,6 +556,8 @@ export class AccountsReceivableEngine {
     const updatedReceipt: CustomerReceipt = {
       ...receipt,
       status: 'REVERSED',
+      allocatedAmount: 0,
+      unallocatedAmount: 0,
       reversalReason: reason,
       reversedAt: now,
       reversedBy: user
@@ -828,7 +838,7 @@ export class AccountsReceivableEngine {
 
     receipts
       .filter(r => r.customerId === customerId && r.status === 'POSTED' && new Date(r.receiptDate).getTime() < startTime)
-      .forEach(r => { openingBalance -= r.totalAmount; });
+      .forEach(r => { openingBalance -= r.allocatedAmount; });
 
     creditNotes
       .filter(cn => cn.customerId === customerId && cn.status === 'POSTED' && new Date(cn.createdAt).getTime() < startTime)
@@ -890,7 +900,7 @@ export class AccountsReceivableEngine {
         type: 'RECEIPT',
         description: `Customer Receipt #${r.receiptNumber} (${r.paymentMethod})`,
         debitAmount: 0,
-        creditAmount: r.totalAmount
+        creditAmount: r.allocatedAmount
       });
     });
 
@@ -931,7 +941,7 @@ export class AccountsReceivableEngine {
     });
 
     const totalInvoiced = periodInvoices.reduce((s, i) => s + i.grandTotal, 0);
-    const totalReceipts = periodReceipts.reduce((s, r) => s + r.totalAmount, 0);
+    const totalReceipts = periodReceipts.reduce((s, r) => s + r.allocatedAmount, 0);
     const totalCreditNotes = periodCreditNotes.reduce((s, cn) => s + cn.grandTotal, 0);
     const totalDebitNotes = periodDebitNotes.reduce((s, dn) => s + dn.grandTotal, 0);
 

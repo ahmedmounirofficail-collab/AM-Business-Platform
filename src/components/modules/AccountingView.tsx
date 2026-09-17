@@ -21,12 +21,14 @@ import { usePlatform } from '../../context/PlatformContext';
 import { ApiClient } from '../../services/apiClient';
 import { Account, JournalEntry, JournalLine, PostingRule, FinancialEvent } from '../../types';
 import { GeneralLedgerManagementView } from './GeneralLedgerManagementView';
+import { ReconciliationCenter } from './ReconciliationCenter';
+import { MonthEndCloseWorkspace } from './MonthEndCloseWorkspace';
 
 export const AccountingView: React.FC = () => {
   const { lang, triggerReload, reloadTrigger } = usePlatform();
   const isAr = lang === 'ar';
 
-  const [subTab, setSubTab] = useState<'gl_engine' | 'journals' | 'postingRules' | 'financialEvents' | 'coa' | 'trial' | 'pl' | 'balanceSheet'>('gl_engine');
+  const [subTab, setSubTab] = useState<'gl_engine' | 'journals' | 'postingRules' | 'financialEvents' | 'coa' | 'trial' | 'pl' | 'balanceSheet' | 'reconciliation' | 'periodClose'>('gl_engine');
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [journals, setJournals] = useState<JournalEntry[]>([]);
@@ -165,7 +167,7 @@ export const AccountingView: React.FC = () => {
   const netIncome = totalRevenue - totalExpenses;
 
   return (
-    <div className="report-shell p-6 space-y-7">
+    <div className="accounting-workspace report-shell p-6 space-y-7">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-5">
@@ -268,6 +270,22 @@ export const AccountingView: React.FC = () => {
           }`}
         >
           {isAr ? 'الميزانية العمومية' : 'Balance Sheet'}
+        </button>
+        <button
+          onClick={() => setSubTab('reconciliation')}
+          className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+            subTab === 'reconciliation' ? 'bg-brand-navy text-brand-gold shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-white/70 dark:hover:bg-slate-700/60'
+          }`}
+        >
+          <span>{isAr ? 'مركز المطابقة' : 'Reconciliation Center'}</span>
+        </button>
+        <button
+          onClick={() => setSubTab('periodClose')}
+          className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+            subTab === 'periodClose' ? 'bg-brand-navy text-brand-gold shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-white/70 dark:hover:bg-slate-700/60'
+          }`}
+        >
+          <span>{isAr ? 'إغلاق الفترة' : 'Period Close'}</span>
         </button>
       </div>
 
@@ -684,6 +702,9 @@ export const AccountingView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {subTab === 'reconciliation' && <ReconciliationCenter />}
+      {subTab === 'periodClose' && <MonthEndCloseWorkspace />}
 
       {/* CREATE MANUAL ADJUSTING JOURNAL ENTRY MODAL */}
       {isCreateJeOpen && (

@@ -13,6 +13,7 @@ import { GlobalSearchModal } from './components/common/GlobalSearchModal';
 // Modules
 import { ExecutiveDashboard } from './components/modules/ExecutiveDashboard';
 import { CorePlatformView } from './components/modules/CorePlatformView';
+import { ReportsCenterView } from './components/modules/ReportsCenterView';
 import { AccountingView } from './components/modules/AccountingView';
 import { InventoryView } from './components/modules/InventoryView';
 import { SalesView } from './components/modules/SalesView';
@@ -160,7 +161,7 @@ const MainLayout: React.FC = () => {
       case 'workflows':
       case 'documents':
       case 'reports':
-        return <CorePlatformView />;
+        return <ReportsCenterView />;
       case 'accounting':
         return <AccountingView />;
       case 'banking':
