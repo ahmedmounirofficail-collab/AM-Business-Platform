@@ -53,7 +53,7 @@ interface WizardStateResponse {
 }
 
 export const EnterpriseOnboardingWizard: React.FC = () => {
-  const { lang, activeCompany, activeTenant, setActiveModule, markOnboardingCompleted } = usePlatform();
+  const { lang, activeCompany, activeTenant, setActiveCompany, setActiveTenant, setActiveModule, markOnboardingCompleted } = usePlatform();
   const isAr = lang === 'ar';
   const checkLabels: Record<string, string> = {
     TENANT_EXISTS_ACTIVE: 'حساب المنشأة',
@@ -78,6 +78,8 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [bootstrapForm, setBootstrapForm] = useState({ tenantName: '', companyName: '' });
+  const [bootstraping, setBootstraping] = useState(false);
 
   const companyId = activeCompany?.id;
   const tenantId = activeTenant?.id || activeCompany?.tenantId;
@@ -130,6 +132,47 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
       setLoading(false);
     }
   }, [companyId, tenantId, activeCompany, activeTenant, isAr]);
+
+  const handleBootstrapSetup = useCallback(async () => {
+    const tenantName = bootstrapForm.tenantName.trim();
+    const companyName = bootstrapForm.companyName.trim();
+    if (!tenantName || !companyName) {
+      setRequestError(isAr ? 'يرجى إدخال اسم المنشأة واسم الشركة.' : 'Please provide tenant and company names.');
+      return;
+    }
+
+    setBootstraping(true);
+    setRequestError(null);
+
+    try {
+      const res = await fetch('/api/v1/onboarding/tenant/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantName,
+          companyName,
+          tenantCode: `TEN-${Date.now().toString().slice(-4)}`,
+          companyCode: `COMP-${Date.now().toString().slice(-4)}`,
+          profileId: 'COMMERCIAL_DISTRIBUTION'
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data?.error || 'Unable to initialize tenant and company.');
+      }
+
+      if (data.tenant) setActiveTenant(data.tenant);
+      if (data.company) setActiveCompany(data.company);
+      setActiveModule('onboarding_wizard');
+      await fetchWizardData();
+    } catch (err: any) {
+      console.error('Bootstrap setup error:', err);
+      setRequestError(err?.message || 'Enterprise setup could not be initialized.');
+    } finally {
+      setBootstraping(false);
+    }
+  }, [bootstrapForm, fetchWizardData, isAr, setActiveCompany, setActiveModule, setActiveTenant]);
 
   useEffect(() => {
     fetchWizardData();

@@ -142,70 +142,21 @@ interface PlatformContextType {
 const PlatformContext = createContext<PlatformContextType | undefined>(undefined);
 
 // Safe baseline enterprise defaults to ensure seamless resilience against cold boots
-const DEFAULT_USER: User = {
-  id: 'usr-001',
-  tenantId: 'ten-001',
-  companyId: 'comp-001',
-  branchId: 'br-001',
-  name: 'Ahmed Mounir',
-  email: 'a.mounir369@gmail.com',
-  role: 'Super Admin',
-  active: true,
-  createdAt: '2026-01-01T08:00:00Z',
-  permissions: [{ module: 'all', actions: ['create', 'read', 'update', 'delete', 'approve', 'export'] }]
-};
-
-const DEFAULT_TENANT: Tenant = {
-  id: 'ten-001',
-  name: 'AM Holding Group',
-  code: 'AMHG',
-  edition: 'Enterprise',
-  ownerEmail: 'a.mounir369@gmail.com',
-  active: true,
-  createdAt: '2026-01-01T08:00:00Z'
-};
-
-const DEFAULT_COMPANY: Company = {
-  id: 'comp-001',
-  tenantId: 'ten-001',
-  name: 'AM Tech Solutions - HQ',
-  nameAr: 'مجموعة إيه إم للحلول التقنية - المقر الرئيسي',
-  code: 'AMHQ',
-  taxNumber: '310984728100003',
-  currency: 'SAR',
-  country: 'Saudi Arabia',
-  countryCode: 'SA',
-  state: 'Riyadh Province',
-  city: 'Riyadh',
-  taxSystemId: 'tax-sys-sa-vat',
-  taxSystemName: 'Saudi Arabia VAT (15% ZATCA Phase 2)',
-  taxRate: 15,
-  timezone: 'Asia/Riyadh',
-  dateFormat: 'YYYY-MM-DD',
-  numberFormat: '1,234.56',
-  language: 'ar',
-  fiscalYearStart: '01-01',
-  address: 'King Fahd Road, Olaya District, Riyadh, KSA',
-  phone: '+966 11 482 9100',
-  email: 'info@amtech.sa',
-  website: 'https://amtech.sa'
-};
-
 export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [lang, setLangState] = useState<Language>('en');
   const [theme, setTheme] = useState<Theme>('light');
   const [activeModule, setActiveModuleState] = useState<ModuleView>('dashboard');
 
-  const [tenants, setTenants] = useState<Tenant[]>([DEFAULT_TENANT]);
-  const [activeTenant, setActiveTenantState] = useState<Tenant | null>(DEFAULT_TENANT);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [activeTenant, setActiveTenantState] = useState<Tenant | null>(null);
 
-  const [companies, setCompanies] = useState<Company[]>([DEFAULT_COMPANY]);
-  const [activeCompany, setActiveCompanyState] = useState<Company | null>(DEFAULT_COMPANY);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [activeCompany, setActiveCompanyState] = useState<Company | null>(null);
 
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [activeWarehouse, setActiveWarehouse] = useState<Warehouse | null>(null);
 
-  const [currentUser, setCurrentUser] = useState<User | null>(DEFAULT_USER);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Platform Initialization & Onboarding Gate (Enterprise First-Run Architecture)
   const [isPlatformInitializing, setIsPlatformInitializing] = useState<boolean>(true);
@@ -220,17 +171,21 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     wizardData?: Record<string, any>;
   } | null>(null);
 
-  const activeCompanyIdRef = useRef<string>('comp-001');
+  const activeCompanyIdRef = useRef<string | null>(null);
 
   // Tenant Identity & Branding Runtime (P0-08)
   const [branding, setBranding] = useState<TenantBranding | null>(null);
   const [isBrandingLoading, setIsBrandingLoading] = useState<boolean>(false);
 
   const refreshBranding = useCallback(async () => {
-    const targetTenantId = activeTenant?.id || 'ten-001';
+    if (!activeTenant?.id) {
+      setBranding(null);
+      return;
+    }
+
     setIsBrandingLoading(true);
     try {
-      const res = await ApiClient.getBranding(targetTenantId, activeCompany?.id);
+      const res = await ApiClient.getBranding(activeTenant.id, activeCompany?.id);
       if (res && res.branding) {
         setBranding(res.branding);
       }
@@ -359,10 +314,16 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const isFavorite = (mod: ModuleView) => favorites.includes(mod);
 
   const verifyCompanyOnboarding = useCallback(async (compId: string, tenId: string) => {
+    if (!compId || !tenId) {
+      setIsOnboardingCompleted(false);
+      setOnboardingState(null);
+      setActiveModuleState('onboarding_wizard');
+      return;
+    }
+
     activeCompanyIdRef.current = compId;
     try {
       const res = await ApiClient.getOnboardingWizardState(compId, tenId);
-      // Prevent race conditions if user rapidly switched companies
       if (activeCompanyIdRef.current !== compId) return;
 
       if (res && res.wizardState) {
@@ -386,7 +347,14 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const setActiveCompany = useCallback((company: Company) => {
     setActiveCompanyState(company);
-    verifyCompanyOnboarding(company.id, activeTenant?.id || company.tenantId || 'ten-001');
+    const tenantId = activeTenant?.id || company.tenantId;
+    if (!tenantId) {
+      setIsOnboardingCompleted(false);
+      setOnboardingState(null);
+      setActiveModuleState('onboarding_wizard');
+      return;
+    }
+    verifyCompanyOnboarding(company.id, tenantId);
   }, [activeTenant, verifyCompanyOnboarding]);
 
   const setActiveTenant = useCallback((tenant: Tenant) => {
@@ -396,7 +364,12 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (targetComp) {
       setActiveCompanyState(targetComp);
       verifyCompanyOnboarding(targetComp.id, tenant.id);
+      return;
     }
+
+    setIsOnboardingCompleted(false);
+    setOnboardingState(null);
+    setActiveModuleState('onboarding_wizard');
   }, [companies, activeCompany, verifyCompanyOnboarding]);
 
   const markOnboardingCompleted = useCallback(() => {
@@ -406,8 +379,22 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const refreshOnboardingState = useCallback(async () => {
-    if (!activeCompany) return;
-    await verifyCompanyOnboarding(activeCompany.id, activeTenant?.id || activeCompany.tenantId || 'ten-001');
+    if (!activeCompany) {
+      setIsOnboardingCompleted(false);
+      setOnboardingState(null);
+      setActiveModuleState('onboarding_wizard');
+      return;
+    }
+
+    const tenantId = activeTenant?.id || activeCompany.tenantId;
+    if (!tenantId) {
+      setIsOnboardingCompleted(false);
+      setOnboardingState(null);
+      setActiveModuleState('onboarding_wizard');
+      return;
+    }
+
+    await verifyCompanyOnboarding(activeCompany.id, tenantId);
   }, [activeCompany, activeTenant, verifyCompanyOnboarding]);
 
   const retryPlatformInit = useCallback(() => {
@@ -519,21 +506,8 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     async function initPlatform(attempt = 0) {
       try {
-        // 1. Ensure authentication token is present before calling protected endpoints
         let currentToken = ApiClient.getToken();
-        if (!currentToken) {
-          try {
-            // Auto-login with default administrator credentials for pilot workspace
-            const loginRes = await ApiClient.login('a.mounir369@gmail.com', 'Admin@2026!');
-            if (loginRes.token) {
-              currentToken = loginRes.token;
-            }
-          } catch (loginErr) {
-            console.warn('[PlatformContext] Default auto-login attempt deferred:', loginErr);
-          }
-        }
 
-        // 2. Fetch authenticated profile
         let authRes: { user: User; tenant: Tenant; company: Company; token?: string } | null = null;
         if (currentToken) {
           try {
@@ -545,8 +519,8 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (isCancelled) return;
 
-        let resolvedTenant: Tenant = activeTenant || DEFAULT_TENANT;
-        let resolvedCompany: Company = activeCompany || DEFAULT_COMPANY;
+        let resolvedTenant: Tenant | null = activeTenant ?? null;
+        let resolvedCompany: Company | null = activeCompany ?? null;
 
         if (authRes) {
           if (authRes.user) setCurrentUser(authRes.user);
@@ -560,7 +534,6 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         }
 
-        // 3. Fetch foundational collections now that authorization is established
         const [tenantsSettled, compSettled, whSettled, approvalsSettled, anomaliesSettled] = await Promise.allSettled([
           ApiClient.getTenants(),
           ApiClient.getCompanies(),
@@ -571,7 +544,7 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (isCancelled) return;
 
-        if (tenantsSettled.status === 'fulfilled' && tenantsSettled.value.length > 0) {
+        if (tenantsSettled.status === 'fulfilled' && Array.isArray(tenantsSettled.value) && tenantsSettled.value.length > 0) {
           setTenants(tenantsSettled.value);
           if (!authRes || !authRes.tenant) {
             resolvedTenant = tenantsSettled.value[0];
@@ -579,7 +552,7 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         }
 
-        if (compSettled.status === 'fulfilled' && compSettled.value.length > 0) {
+        if (compSettled.status === 'fulfilled' && Array.isArray(compSettled.value) && compSettled.value.length > 0) {
           setCompanies(compSettled.value);
           if (!authRes || !authRes.company) {
             resolvedCompany = compSettled.value[0];
@@ -587,7 +560,7 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         }
 
-        if (whSettled.status === 'fulfilled' && whSettled.value.length > 0) {
+        if (whSettled.status === 'fulfilled' && Array.isArray(whSettled.value) && whSettled.value.length > 0) {
           setWarehouses(whSettled.value);
           setActiveWarehouse(whSettled.value[0] || null);
         }
@@ -601,7 +574,15 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setAnomaliesCount(anomaliesSettled.value.length);
         }
 
-        // Strict Gate: Query SQLite for actual wizard state of resolved active company & tenant
+        if (!resolvedCompany || !resolvedTenant) {
+          setIsOnboardingCompleted(false);
+          setOnboardingState(null);
+          setActiveModuleState('onboarding_wizard');
+          setPlatformInitError(null);
+          setIsPlatformInitializing(false);
+          return;
+        }
+
         const targetCompId = resolvedCompany.id;
         const targetTenId = resolvedTenant.id;
         activeCompanyIdRef.current = targetCompId;
@@ -624,7 +605,11 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setPlatformInitError(null);
           setIsPlatformInitializing(false);
         } else {
-          throw new Error('Invalid onboarding wizard state received from backend.');
+          setIsOnboardingCompleted(false);
+          setOnboardingState(null);
+          setActiveModuleState('onboarding_wizard');
+          setPlatformInitError(null);
+          setIsPlatformInitializing(false);
         }
 
       } catch (err: any) {
