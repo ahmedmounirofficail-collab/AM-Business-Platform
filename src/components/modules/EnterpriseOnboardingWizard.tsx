@@ -55,6 +55,17 @@ interface WizardStateResponse {
 export const EnterpriseOnboardingWizard: React.FC = () => {
   const { lang, activeCompany, activeTenant, setActiveModule, markOnboardingCompleted } = usePlatform();
   const isAr = lang === 'ar';
+  const checkLabels: Record<string, string> = {
+    TENANT_EXISTS_ACTIVE: 'حساب المنشأة',
+    LEGAL_IDENTITY_COMPLETE: 'البيانات القانونية',
+    BASE_CURRENCY_VALID: 'العملة الأساسية',
+    FISCAL_YEAR_CALENDAR_VALID: 'الفترة المالية',
+    BRANCH_SETUP_VALID: 'الفروع التشغيلية',
+    WAREHOUSE_SETUP_VALID: 'المستودعات',
+    CHART_OF_ACCOUNTS_COMPLETE: 'الحسابات الأساسية',
+    TAX_CONFIGURATION_VALID: 'إعدادات الضرائب',
+    FIRST_ADMIN_AUTHENTICATABLE: 'المستخدم المسؤول'
+  };
 
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
@@ -65,49 +76,60 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [certificate, setCertificate] = useState<OnboardingCompletionCertificate | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
 
-  const companyId = activeCompany?.id || 'comp-001';
-  const tenantId = activeTenant?.id || 'ten-001';
+  const companyId = activeCompany?.id;
+  const tenantId = activeTenant?.id || activeCompany?.tenantId;
 
   // Fetch wizard state and readiness report from server
   const fetchWizardData = useCallback(async () => {
     setLoading(true);
-    try {
-      const res = await fetch(`/api/v1/onboarding/wizard/state?companyId=${companyId}&tenantId=${tenantId}`);
-      if (!res.ok) throw new Error('Failed to load onboarding state');
-      const data = await res.json();
-      if (data.success) {
-        setWizardState(data.wizardState);
-        setReadiness(data.readiness);
-        setActiveStep(data.wizardState.currentStep || 1);
-        
-        // Merge persisted step data into local formData
-        const initialForm: Record<string, any> = {};
-        if (data.wizardState.wizardData) {
-          Object.values(data.wizardState.wizardData).forEach((sData: any) => {
-            if (sData && typeof sData === 'object') {
-              Object.assign(initialForm, sData);
-            }
-          });
-        }
-        // Defaults if empty
-        if (!initialForm.companyName && activeCompany) initialForm.companyName = activeCompany.name;
-        if (!initialForm.companyCode && activeCompany) initialForm.companyCode = activeCompany.code;
-        if (!initialForm.taxNumber && activeCompany?.taxNumber) initialForm.taxNumber = activeCompany.taxNumber;
-        if (!initialForm.tenantName && activeTenant) initialForm.tenantName = activeTenant.name;
-        if (!initialForm.currencyCode) initialForm.currencyCode = 'SAR';
-        if (!initialForm.countryCode) initialForm.countryCode = 'SA';
-        if (!initialForm.standardRate) initialForm.standardRate = 15;
-        if (!initialForm.profileId) initialForm.profileId = data.wizardState.activeProfile?.profileId || 'COMMERCIAL_DISTRIBUTION';
+    setLoadError(null);
+    if (!companyId || !tenantId) {
+      setLoading(false);
+      setLoadError(isAr ? 'تعذر تحميل إعدادات النسخة التجريبية' : 'تعذر تحميل إعدادات النسخة التجريبية');
+      return;
+    }
 
-        setFormData(initialForm);
+    try {
+      const params = new URLSearchParams({ companyId, tenantId });
+      const res = await fetch(`/api/v1/onboarding/wizard/state?${params.toString()}`);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
+      const data = await res.json();
+      if (!data.success || !data.wizardState || !Array.isArray(data.wizardState.steps) || !data.readiness) {
+        throw new Error('Malformed onboarding response');
+      }
+
+      setWizardState(data.wizardState);
+      setReadiness(data.readiness);
+      setActiveStep(data.wizardState.currentStep || 1);
+        
+      // Merge persisted step data into local formData
+      const initialForm: Record<string, any> = {};
+      if (data.wizardState.wizardData) {
+        Object.values(data.wizardState.wizardData).forEach((sData: any) => {
+          if (sData && typeof sData === 'object') {
+            Object.assign(initialForm, sData);
+          }
+        });
+      }
+      if (!initialForm.companyName && activeCompany) initialForm.companyName = activeCompany.name;
+      if (!initialForm.companyCode && activeCompany) initialForm.companyCode = activeCompany.code;
+      if (!initialForm.taxNumber && activeCompany?.taxNumber) initialForm.taxNumber = activeCompany.taxNumber;
+      if (!initialForm.tenantName && activeTenant) initialForm.tenantName = activeTenant.name;
+      if (!initialForm.profileId) initialForm.profileId = data.wizardState.activeProfile?.profileId;
+
+      setFormData(initialForm);
     } catch (err) {
       console.error('Error fetching wizard data:', err);
+      setLoadError(isAr ? 'تعذر تحميل إعدادات النسخة التجريبية' : 'تعذر تحميل إعدادات النسخة التجريبية');
     } finally {
       setLoading(false);
     }
-  }, [companyId, tenantId, activeCompany, activeTenant]);
+  }, [companyId, tenantId, activeCompany, activeTenant, isAr]);
 
   useEffect(() => {
     fetchWizardData();
@@ -127,7 +149,12 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
 
   // Submit Step to Server
   const handleAdvanceStep = async () => {
+    if (!companyId || !tenantId) {
+      setRequestError('تعذر تحميل إعدادات النسخة التجريبية');
+      return;
+    }
     setSaving(true);
+    setRequestError(null);
     setValidationErrors({});
     try {
       const res = await fetch('/api/v1/onboarding/wizard/step', {
@@ -151,8 +178,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
         return;
       }
 
-      setSaveNotice(isAr ? 'تم حفظ الخطوة بنجاح' : 'Step saved and persisted successfully');
-      setTimeout(() => setSaveNotice(null), 3000);
+      setSaveNotice(isAr ? 'تم حفظ الخطوة بنجاح' : 'تم حفظ الخطوة بنجاح');
 
       // Refresh state
       if (result.wizardState) {
@@ -162,13 +188,16 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
         setActiveStep(prev => prev + 1);
       }
       // Re-fetch readiness check
-      const rRes = await fetch(`/api/v1/onboarding/readiness?companyId=${companyId}&tenantId=${tenantId}`);
-      if (rRes.ok) {
-        const rData = await rRes.json();
-        if (rData.success) setReadiness(rData.report);
+      const rRes = await fetch(`/api/v1/onboarding/readiness?${new URLSearchParams({ companyId, tenantId })}`);
+      if (!rRes.ok) {
+        throw new Error(`HTTP ${rRes.status}`);
       }
+      const rData = await rRes.json();
+      if (!rData.success || !rData.report) throw new Error('Malformed readiness response');
+      setReadiness(rData.report);
     } catch (err: any) {
-      setValidationErrors({ general: err.message || 'Server connection error' });
+      console.error('Error saving onboarding step:', err);
+      setRequestError('تعذر حفظ الإعدادات. يرجى إعادة المحاولة.');
     } finally {
       setSaving(false);
     }
@@ -176,7 +205,16 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
 
   // Final Certification & Materialization Sign-Off
   const handleCompleteCertification = async () => {
+    if (!companyId || !tenantId) {
+      setRequestError('تعذر تحميل إعدادات النسخة التجريبية');
+      return;
+    }
+    if (!readiness?.isReady) {
+      setRequestError('لا يمكن اعتماد النسخة التجريبية بعد');
+      return;
+    }
     setSaving(true);
+    setRequestError(null);
     try {
       const res = await fetch('/api/v1/onboarding/wizard/complete', {
         method: 'POST',
@@ -185,7 +223,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        alert(data.error || 'Failed to complete onboarding certification.');
+        setRequestError('لا يمكن اعتماد النسخة التجريبية بعد');
         return;
       }
       setCertificate(data.certificate);
@@ -195,7 +233,8 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
       }
       markOnboardingCompleted();
     } catch (err: any) {
-      alert('Certification error: ' + err.message);
+      console.error('Certification error:', err);
+      setRequestError('تعذر اعتماد النسخة التجريبية. يرجى إعادة المحاولة.');
     } finally {
       setSaving(false);
     }
@@ -205,7 +244,23 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-[600px] text-slate-500">
         <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mr-3" />
-        <span className="text-lg font-medium">{isAr ? 'جاري تحميل معالج الإعداد المؤسسي...' : 'Loading Enterprise Setup Wizard...'}</span>
+        <span className="text-lg font-medium">جاري تحميل إعدادات النسخة التجريبية...</span>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-3xl mx-auto p-6">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center text-rose-800">
+          <AlertCircle className="mx-auto mb-3 h-8 w-8" />
+          <h1 className="text-lg font-bold">{loadError}</h1>
+          <p className="mt-2 text-sm">يرجى التحقق من اتصال النظام وسياق المنشأة ثم المحاولة مرة أخرى.</p>
+          <button onClick={fetchWizardData} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
+            <RefreshCw className="h-4 w-4" />
+            إعادة المحاولة
+          </button>
+        </div>
       </div>
     );
   }
@@ -214,7 +269,8 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
   const progressPercent = Math.round((activeStep / 19) * 100);
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="h-full min-h-0 overflow-hidden">
+      <div className="max-w-7xl mx-auto h-full min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
       
       {/* AM Enterprise Header Bar */}
       <div className="bg-[#0B1F3A] text-white border border-[#153258] rounded-2xl p-6 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -226,16 +282,16 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                  {isAr ? 'معالج الإعداد المؤسسي والتهيئة الأولية' : 'Enterprise Setup & Tenant Onboarding Wizard'}
+                  {isAr ? 'معالج إعداد المنشأة' : 'Company Setup Wizard'}
                 </h1>
                 <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#F28C28]/20 text-[#F28C28] border border-[#F28C28]/40">
-                  AM ERP Kernel
+                  إعدادات منصة الأعمال
                 </span>
               </div>
               <p className="text-xs text-slate-300">
                 {isAr 
                   ? '«كل قرار ناجح يبدأ برقم صحيح» — تهيئة المنشأة وضمان الجاهزية التشغيلية للنسخة التجريبية (19 خطوة نظامية)'
-                  : '"Every successful decision begins with an accurate number" — Multi-tenant onboarding & pilot certification'}
+                  : 'إعداد المنشأة والتحقق من جاهزية النسخة التجريبية'}
               </p>
             </div>
           </div>
@@ -271,6 +327,11 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
         <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           {saveNotice}
+        </div>
+      )}
+      {requestError && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+          <div className="flex items-center gap-2 font-semibold"><AlertCircle className="h-4 w-4" />{requestError}</div>
         </div>
       )}
 
@@ -324,7 +385,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
 
                   {step.isDynamicVerticalStep && (
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
-                      {isAr ? 'نشاط' : 'Vertical'}
+                      {isAr ? 'نشاط' : 'Business'}
                     </span>
                   )}
                 </button>
@@ -380,7 +441,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1 md:col-span-2">
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {isAr ? 'اسم المشترك المؤسسي / المجموعة' : 'Tenant / Holding Enterprise Name *'}
+                      {isAr ? 'اسم المنشأة أو المجموعة *' : 'Company or Group Name *'}
                     </label>
                     <input
                       type="text"
@@ -392,7 +453,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {isAr ? 'رمز المشترك المؤسسي' : 'Tenant Code (2-16 chars) *'}
+                      {isAr ? 'رمز المنشأة (من حرفين إلى 16 حرفًا)' : 'Company Code (2-16 characters) *'}
                     </label>
                     <input
                       type="text"
@@ -500,7 +561,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-white flex items-center gap-2">
-                          <span>{isAr ? 'قاعدة منصة إيه إم للأعمال' : 'AM Platform Visual Kernel'}</span>
+                          <span>{isAr ? 'هوية منصة إيه إم للأعمال' : 'Business Platform Identity'}</span>
                           <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#F28C28]/20 text-[#F28C28] border border-[#F28C28]/40">
                             Fixed Master Identity
                           </span>
@@ -508,7 +569,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                         <p className="text-[11px] text-slate-300">
                           {isAr 
                             ? 'ألوان النواة: كحلي داكن (#0B1F3A) • برتقالي عنبري (#F28C28) • خطوط Plus Jakarta Sans و Cairo' 
-                            : 'Kernel Colors: Navy (#0B1F3A) • Amber (#F28C28) • Fonts: Plus Jakarta Sans & Cairo'}
+                            : 'ألوان وهوية العرض المعتمدة للمنصة'}
                         </p>
                       </div>
                     </div>
@@ -520,7 +581,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        {isAr ? 'لون هوية المستأجر الأساسي (Primary Hex)' : 'Tenant Primary Brand Color'}
+                        {isAr ? 'اللون الأساسي للمنشأة' : 'Primary Company Color'}
                       </label>
                       <div className="flex items-center gap-2">
                         <input
@@ -540,7 +601,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
 
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        {isAr ? 'لون هوية المستأجر التمييزي (Accent Hex)' : 'Tenant Accent Brand Color'}
+                        {isAr ? 'اللون المميز للمنشأة' : 'Company Accent Color'}
                       </label>
                       <div className="flex items-center gap-2">
                         <input
@@ -573,7 +634,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
 
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        {isAr ? 'اسم التطبيق المخصص للمستأجر' : 'Custom Tenant Portal Name'}
+                        {isAr ? 'اسم التطبيق المخصص للمنشأة' : 'Custom Company App Name'}
                       </label>
                       <input
                         type="text"
@@ -588,7 +649,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                   {/* Tenant Branding Card Preview */}
                   <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 space-y-2">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      {isAr ? 'معاينة هوية المستأجر مع بصمة المنصة' : 'Tenant Workspace Preview (with AM Signature)'}
+                      {isAr ? 'معاينة هوية المنشأة' : 'Company Workspace Preview'}
                     </span>
                     <div 
                       className="p-3 rounded-lg text-white flex items-center justify-between"
@@ -602,11 +663,11 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                           {formData.appName ? formData.appName.slice(0, 2).toUpperCase() : 'CO'}
                         </div>
                         <span className="font-bold text-xs">
-                          {formData.appName || (isAr ? 'بوابة المستأجر المؤسسية' : 'Tenant Enterprise Portal')}
+                          {formData.appName || (isAr ? 'بوابة المنشأة' : 'Company Portal')}
                         </span>
                       </div>
                       <span className="text-[10px] opacity-80">
-                        Powered by AM Platform
+                        منصة إيه إم للأعمال
                       </span>
                     </div>
                   </div>
@@ -622,7 +683,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     </label>
                     <select
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.countryCode || 'SA'}
+                      value={formData.countryCode || ''}
                       onChange={(e) => handleInputChange('countryCode', e.target.value)}
                     >
                       <option value="SA">Saudi Arabia (SA) - ZATCA</option>
@@ -666,7 +727,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     </label>
                     <select
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.currencyCode || 'SAR'}
+                      value={formData.currencyCode || ''}
                       onChange={(e) => handleInputChange('currencyCode', e.target.value)}
                     >
                       <option value="SAR">SAR - Saudi Riyal</option>
@@ -681,7 +742,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     </label>
                     <select
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.decimalPlaces ?? 2}
+                      value={formData.decimalPlaces ?? ''}
                       onChange={(e) => handleInputChange('decimalPlaces', Number(e.target.value))}
                     >
                       <option value={2}>2 Decimals (Standard)</option>
@@ -702,7 +763,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     <input
                       type="text"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.fiscalYearName || 'FY-2026'}
+                      value={formData.fiscalYearName || ''}
                       onChange={(e) => handleInputChange('fiscalYearName', e.target.value)}
                     />
                   </div>
@@ -713,7 +774,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     <input
                       type="date"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.startDate || '2026-01-01'}
+                      value={formData.startDate || ''}
                       onChange={(e) => handleInputChange('startDate', e.target.value)}
                     />
                   </div>
@@ -724,7 +785,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     <input
                       type="date"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.endDate || '2026-12-31'}
+                      value={formData.endDate || ''}
                       onChange={(e) => handleInputChange('endDate', e.target.value)}
                     />
                   </div>
@@ -741,7 +802,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     <input
                       type="text"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.branchCode || 'BR-HQ-01'}
+                      value={formData.branchCode || ''}
                       onChange={(e) => handleInputChange('branchCode', e.target.value)}
                     />
                   </div>
@@ -752,7 +813,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     <input
                       type="text"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.branchName || 'Main Headquarters & Flagship'}
+                      value={formData.branchName || ''}
                       onChange={(e) => handleInputChange('branchName', e.target.value)}
                     />
                   </div>
@@ -769,7 +830,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     <input
                       type="text"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.warehouseCode || 'WH-MAIN-01'}
+                      value={formData.warehouseCode || ''}
                       onChange={(e) => handleInputChange('warehouseCode', e.target.value)}
                     />
                   </div>
@@ -780,7 +841,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     <input
                       type="text"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.warehouseName || 'Central Distribution Warehouse'}
+                      value={formData.warehouseName || ''}
                       onChange={(e) => handleInputChange('warehouseName', e.target.value)}
                     />
                   </div>
@@ -797,7 +858,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     <input
                       type="text"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.cashboxCode || 'CASH-MAIN-01'}
+                      value={formData.cashboxCode || ''}
                       onChange={(e) => handleInputChange('cashboxCode', e.target.value)}
                     />
                   </div>
@@ -808,7 +869,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     <input
                       type="text"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.bankName || 'Al Rajhi Corporate'}
+                      value={formData.bankName || ''}
                       onChange={(e) => handleInputChange('bankName', e.target.value)}
                     />
                   </div>
@@ -819,7 +880,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     <input
                       type="text"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.bankAccount || 'SA0380000000608010167519'}
+                      value={formData.bankAccount || ''}
                       onChange={(e) => handleInputChange('bankAccount', e.target.value)}
                     />
                   </div>
@@ -835,11 +896,11 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     </label>
                     <select
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.taxJurisdiction || 'SA-ZATCA'}
+                      value={formData.taxJurisdiction || ''}
                       onChange={(e) => {
                         const jur = e.target.value;
                         handleInputChange('taxJurisdiction', jur);
-                        handleInputChange('standardRate', jur === 'EG-ETA' ? 14 : 15);
+                        handleInputChange('standardRate', jur === 'EG-ETA' ? 14 : jur === 'SA-ZATCA' ? 15 : undefined);
                       }}
                     >
                       <option value="SA-ZATCA">Saudi Arabia — ZATCA (15% VAT)</option>
@@ -854,7 +915,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     <input
                       type="number"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.standardRate ?? 15}
+                      value={formData.standardRate ?? ''}
                       onChange={(e) => handleInputChange('standardRate', Number(e.target.value))}
                     />
                   </div>
@@ -866,11 +927,11 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {isAr ? 'ملف النشاط التشغيلي المعتمد للنسخة التجريبية' : 'Pilot Industry Vertical Profile *'}
+                      {isAr ? 'ملف النشاط التشغيلي للنسخة التجريبية' : 'Pilot Business Profile *'}
                     </label>
                     <select
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.profileId || 'COMMERCIAL_DISTRIBUTION'}
+                      value={formData.profileId || ''}
                       onChange={(e) => handleInputChange('profileId', e.target.value)}
                     >
                       <option value="COMMERCIAL_DISTRIBUTION">1. Commercial Trading & Distribution (FMCG)</option>
@@ -886,11 +947,11 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
 
                   <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-2">
                     <span className="font-semibold text-slate-700 dark:text-slate-300">
-                      {isAr ? 'ميزات النشاط المحددة:' : 'Active Vertical Engine Capabilities:'}
+                      {isAr ? 'خصائص النشاط المحددة:' : 'Business Capabilities:'}
                     </span>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-slate-600 dark:text-slate-400">
                       <div>• {isAr ? 'شجرة حسابات مخصصة تلقائياً للنشاط' : 'Auto-provisioned Industry Chart of Accounts'}</div>
-                      <div>• {isAr ? 'مؤشرات أداء ومعايير تشغيلية مدمجة' : 'Built-in Vertical KPIs & Reconciliations'}</div>
+                      <div>• {isAr ? 'مؤشرات أداء ومعايير تشغيلية مدمجة' : 'Built-in business indicators and reconciliations'}</div>
                       <div>• {isAr ? 'نماذج تسعير ومستندات أعمال متوافقة' : 'Domain pricing models and validation rules'}</div>
                       <div>• {isAr ? 'ربط مباشر بمحرك القيود والضرائب' : 'Direct journal & statutory tax binding'}</div>
                     </div>
@@ -908,7 +969,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     <input
                       type="text"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.invoicePrefix || 'INV-2026-'}
+                      value={formData.invoicePrefix || ''}
                       onChange={(e) => handleInputChange('invoicePrefix', e.target.value)}
                     />
                   </div>
@@ -919,7 +980,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                     <input
                       type="text"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      value={formData.orderPrefix || 'SO-2026-'}
+                      value={formData.orderPrefix || ''}
                       onChange={(e) => handleInputChange('orderPrefix', e.target.value)}
                     />
                   </div>
@@ -946,7 +1007,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                       <input
                         type="text"
                         className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                        value={formData.adminUsername || 'admin'}
+                        value={formData.adminUsername || ''}
                         onChange={(e) => handleInputChange('adminUsername', e.target.value)}
                       />
                     </div>
@@ -957,7 +1018,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                       <input
                         type="text"
                         className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                        value={formData.adminFullName || 'Enterprise Administrator'}
+                        value={formData.adminFullName || ''}
                         onChange={(e) => handleInputChange('adminFullName', e.target.value)}
                       />
                     </div>
@@ -981,7 +1042,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                         type="password"
                         maxLength={8}
                         className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                        value={formData.adminPin || '9988'}
+                        value={formData.adminPin || ''}
                         onChange={(e) => handleInputChange('adminPin', e.target.value)}
                       />
                     </div>
@@ -997,7 +1058,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                       <div>
                         <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                           <Award className="w-4 h-4 text-blue-600" />
-                          {isAr ? 'فحص الجاهزية التشغيلية النهائي (16 معياراً حتمياً)' : 'Deterministic Pilot Readiness Audit (16 Controls)'}
+                          {isAr ? 'فحص جاهزية النسخة التجريبية (16 معيارًا)' : 'Pilot Readiness Check (16 requirements)'}
                         </h3>
                         <p className="text-xs text-slate-500">
                           {isAr ? 'يتم التحقق من اكتمال كافة البيانات التشغيلية والقانونية والمحاسبية' : 'Evaluates server-side persisted state against authoritative controls'}
@@ -1022,10 +1083,10 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                           <div>
                             <div className="font-semibold text-slate-900 dark:text-slate-100">
-                              {isAr ? check.nameAr : check.name}
+                              {isAr ? check.nameAr : (checkLabels[check.id] || check.name)}
                             </div>
                             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                              {check.message}
+                              {isAr ? check.messageAr : check.message}
                             </div>
                           </div>
                         </div>
@@ -1036,11 +1097,16 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                           <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                           <div>
                             <div className="font-semibold text-rose-800 dark:text-rose-300">
-                              {isAr ? check.nameAr : check.name}
+                              {isAr ? check.nameAr : (checkLabels[check.id] || check.name)}
                             </div>
                             <div className="text-[11px] text-rose-600 dark:text-rose-400">
-                              {check.message}
+                              {isAr ? check.messageAr : check.message}
                             </div>
+                            {(check.requiredAction || check.blockingReason) && (
+                              <div className="mt-1 text-[11px] font-medium text-rose-700 dark:text-rose-300">
+                                المطلوب: {check.requiredAction || check.blockingReason}
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -1051,7 +1117,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                   <div className="p-6 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="space-y-1">
                       <div className="font-bold text-slate-900 dark:text-slate-100">
-                        {isAr ? 'اعتماد وإطلاق النسخة التجريبية للمنشأة' : 'Certify & Unlock Enterprise Pilot Operations'}
+                        {isAr ? 'اعتماد وتشغيل النسخة التجريبية' : 'Approve and start the pilot'}
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md">
                         {isAr
@@ -1062,11 +1128,11 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
 
                     <button
                       onClick={handleCompleteCertification}
-                      disabled={saving}
+                      disabled={saving || !readiness?.isReady}
                       className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
                     >
                       <Award className="w-4 h-4" />
-                      {saving ? (isAr ? 'جاري الاعتماد...' : 'Certifying...') : (isAr ? 'اعتماد وتدشين المنشأة' : 'Certify & Launch Pilot')}
+                      {saving ? (isAr ? 'جاري الاعتماد...' : 'جاري الاعتماد...') : readiness?.isReady ? 'اعتماد وتشغيل النسخة التجريبية' : 'لا يمكن اعتماد النسخة التجريبية بعد'}
                     </button>
                   </div>
                 </div>
@@ -1077,7 +1143,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                 <div className="p-6 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 text-center space-y-2">
                   <FileCheck className="w-8 h-8 text-blue-600 mx-auto" />
                   <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                    {isAr ? 'تكوين المعايير الافتراضية المعتمدة' : 'Standard Enterprise Defaults Configured'}
+                    {isAr ? 'الإعدادات القياسية لهذه الخطوة' : 'Standard settings for this step'}
                   </div>
                   <p className="text-xs text-slate-500 max-w-md mx-auto">
                     {isAr 
@@ -1133,7 +1199,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                 <Award className="w-8 h-8" />
               </div>
               <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">
-                {isAr ? 'شهادة اكتمال الإعداد والجاهزية التشغيلية' : 'Enterprise Pilot Readiness Certificate'}
+                {isAr ? 'شهادة اكتمال الإعداد والجاهزية التشغيلية' : 'Pilot Readiness Certificate'}
               </h3>
               <p className="text-xs font-mono text-slate-400">
                 {certificate.certificateId}
@@ -1191,6 +1257,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
         </div>
       )}
 
+      </div>
     </div>
   );
 };

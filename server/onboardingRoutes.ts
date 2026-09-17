@@ -15,10 +15,29 @@ export function registerOnboardingRoutes(
   app: Express,
   { pilotDb, manager, tenants, companies, recordAudit }: OnboardingRouteOptions,
 ): void {
+const resolveOrganizationContext = (req: Request): { companyId?: string; tenantId?: string } => ({
+  companyId: (req.query.companyId as string) || (req.body?.companyId as string) || (req as any).auth?.companyId || (req.headers['x-company-id'] as string),
+  tenantId: (req.query.tenantId as string) || (req.body?.tenantId as string) || (req as any).auth?.tenantId || (req.headers['x-tenant-id'] as string)
+});
+
+const requireOrganizationContext = (req: Request, res: Response): { companyId: string; tenantId: string } | null => {
+  const context = resolveOrganizationContext(req);
+  if (!context.companyId || !context.tenantId) {
+    res.status(400).json({
+      success: false,
+      error: 'Missing organization context.',
+      code: 'MISSING_ORGANIZATION_CONTEXT'
+    });
+    return null;
+  }
+  return { companyId: context.companyId, tenantId: context.tenantId };
+};
+
 // Get full onboarding wizard state & definitions
 app.get('/api/v1/onboarding/wizard/state', (req: Request, res: Response) => {
-  const targetCompany = (req.query.companyId as string) || (req as any).auth?.companyId || (req.headers['x-company-id'] as string) || 'comp-001';
-  const targetTenant = (req.query.tenantId as string) || (req as any).auth?.tenantId || (req.headers['x-tenant-id'] as string) || 'ten-001';
+  const context = requireOrganizationContext(req, res);
+  if (!context) return;
+  const { companyId: targetCompany, tenantId: targetTenant } = context;
 
   // Anti-IDOR: If authenticated with a Bearer token, enforce cross-tenant boundary
   if ((req as any).auth && (req as any).auth.tenantId && (req as any).auth.tenantId !== targetTenant) {
@@ -41,9 +60,10 @@ app.get('/api/v1/onboarding/wizard/state', (req: Request, res: Response) => {
 
 // Save / advance individual onboarding step
 app.post('/api/v1/onboarding/wizard/step', (req: Request, res: Response) => {
-  const { stepNumber, payload, companyId, tenantId } = req.body;
-  const targetCompany = companyId || (req as any).auth?.companyId || (req.headers['x-company-id'] as string) || 'comp-001';
-  const targetTenant = tenantId || (req as any).auth?.tenantId || (req.headers['x-tenant-id'] as string) || 'ten-001';
+  const { stepNumber, payload } = req.body;
+  const context = requireOrganizationContext(req, res);
+  if (!context) return;
+  const { companyId: targetCompany, tenantId: targetTenant } = context;
 
   if ((req as any).auth && (req as any).auth.tenantId && (req as any).auth.tenantId !== targetTenant) {
     return res.status(403).json({
@@ -86,8 +106,9 @@ app.post('/api/v1/onboarding/wizard/step', (req: Request, res: Response) => {
 
 // Deterministic readiness evaluation (Phase 5)
 app.get('/api/v1/onboarding/readiness', (req: Request, res: Response) => {
-  const targetCompany = (req.query.companyId as string) || (req as any).auth?.companyId || (req.headers['x-company-id'] as string) || 'comp-001';
-  const targetTenant = (req.query.tenantId as string) || (req as any).auth?.tenantId || (req.headers['x-tenant-id'] as string) || 'ten-001';
+  const context = requireOrganizationContext(req, res);
+  if (!context) return;
+  const { companyId: targetCompany, tenantId: targetTenant } = context;
 
   if ((req as any).auth && (req as any).auth.tenantId && (req as any).auth.tenantId !== targetTenant) {
     return res.status(403).json({
@@ -107,9 +128,9 @@ app.get('/api/v1/onboarding/readiness', (req: Request, res: Response) => {
 
 // Final readiness review and explicit completion
 app.post('/api/v1/onboarding/wizard/complete', (req: Request, res: Response) => {
-  const { companyId, tenantId } = req.body;
-  const targetCompany = companyId || (req as any).auth?.companyId || (req.headers['x-company-id'] as string) || 'comp-001';
-  const targetTenant = tenantId || (req as any).auth?.tenantId || (req.headers['x-tenant-id'] as string) || 'ten-001';
+  const context = requireOrganizationContext(req, res);
+  if (!context) return;
+  const { companyId: targetCompany, tenantId: targetTenant } = context;
 
   if ((req as any).auth && (req as any).auth.tenantId && (req as any).auth.tenantId !== targetTenant) {
     return res.status(403).json({

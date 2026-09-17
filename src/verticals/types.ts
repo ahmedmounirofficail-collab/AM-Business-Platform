@@ -629,6 +629,7 @@ export interface ReadinessCheckItem {
   message: string;
   messageAr: string;
   blockingReason?: string;
+  requiredAction?: string;
   details?: Record<string, any>;
 }
 
@@ -686,4 +687,3 @@ export interface OnboardingCompletionCertificate {
   readinessScore: number;
   operationalStatus: 'PILOT_READY' | 'ACTIVE';
 }
-

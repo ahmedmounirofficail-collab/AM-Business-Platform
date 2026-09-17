@@ -303,6 +303,9 @@ export class OnboardingReadinessEvaluator {
 
     // Helper to log check outcome
     const recordCheck = (item: ReadinessCheckItem) => {
+      if (item.status === 'FAIL' && item.blockingReason && !item.requiredAction) {
+        item.requiredAction = item.blockingReason;
+      }
       if (item.status === 'PASS') {
         completedChecks.push(item);
       } else if (item.status === 'FAIL') {
@@ -1028,6 +1031,9 @@ export class OnboardingMaterializer {
 
       // 13. EVALUATE FINAL READINESS
       const report = OnboardingReadinessEvaluator.evaluate(companyId, tenantId, txDb);
+      if (!report.isReady) {
+        throw new Error(`Pilot certification blocked: ${report.nextRequiredAction}`);
+      }
 
       // 14. CRYPTOGRAPHIC AUDIT LOGGING
       const auditPayload = {
