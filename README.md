@@ -5,20 +5,33 @@ API and SQLite persistence.
 
 ## Quick start
 
-Requirements: Node.js 22 or newer and npm.
+Requirements: Node.js 22 or newer and npm 10 or newer. Node.js 22 LTS is the
+recommended Windows version; Node.js 24 is also supported by the current
+dependencies.
 
-```bash
-npm install
-cp .env.example .env
+From Windows CMD:
+```bat
+npm ci
+copy .env.example .env
 npm run dev
 ```
 
-The development server runs on `http://localhost:3000`. In a second terminal,
-verify that it is healthy:
+From PowerShell:
+```powershell
+npm ci
+Copy-Item .env.example .env
+npm run dev
+```
 
-```bash
+The development server runs on `http://127.0.0.1:3000`. In a second terminal:
+
+```bat
+npm install
 npm run smoke
 ```
+
+Do not run `npm install` after `npm ci` unless you intentionally change the
+dependency manifest. `package-lock.json` is committed so clean installs work.
 
 ## Configuration
 
@@ -40,10 +53,12 @@ missing. See [`.env.example`](./.env.example) and
 
 ## Build and production start
 
-```bash
+```bat
 npm run lint
 npm run build
-NODE_ENV=production npm start
+set NODE_ENV=production
+set AUTH_TOKEN_SECRET=replace-with-a-local-secret-at-least-32-characters
+npm start
 ```
 
 Use a durable mounted volume for SQLite. Runtime database files, WAL files,
@@ -53,27 +68,43 @@ backups, and certification outputs are intentionally ignored by Git.
 
 Use the local handoff package before any Windows pilot validation run:
 
-```bash
-cp .env.example .env
-npm install
+```bat
+copy .env.example .env
+npm ci
+npm run lint
+npm run build
 npm run validate:local
 npm run dev
 ```
 
 For endpoint checks against a running local instance:
 
-```bash
+```bat
 npm run validate:local -- --check-server
 ```
+
+`validate:local` reports environment/build/database state. The
+`--check-server` form additionally requires live `/api/health` and
+`/api/readiness` responses and exits non-zero if either is unavailable.
+
+## Clean customer mode
+
+`DEMO_MODE=false` and `ALLOW_DEMO_SEED_DATA=false` are the safe defaults.
+A blank database contains no customers, vendors, products, inventory,
+transactions, or dashboard metrics. The fixtures used by certification tests
+are explicit opt-in demo data and are never inserted in customer mode.
 
 The full local handoff documentation is in [`LOCAL_HANDOFF.md`](./LOCAL_HANDOFF.md).
 
 ## Tests
 
-```bash
+```bat
 npm run smoke       # requires npm run dev in another terminal
 npm test            # full certification suites; may require significant memory
 ```
+
+Critical focused checks include `npm run test:p0-boundary`,
+`npm run test:p007`, and `npm run test:invoice-http`.
 
 Certification scripts write runtime databases and should use an isolated
 `DATABASE_PATH` in CI.

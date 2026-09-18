@@ -1,7 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import dotenv from 'dotenv';
 
 const BASE_DIR = process.cwd();
+dotenv.config({ path: path.join(BASE_DIR, '.env') });
+const checkServer = process.argv.includes('--check-server');
+const buildReady = fs.existsSync(path.join(BASE_DIR, 'dist', 'index.html'))
+  && fs.existsSync(path.join(BASE_DIR, 'dist', 'server.cjs'));
 const port = Number(process.env.PORT ?? '3000');
 const databasePath = path.resolve(process.env.DATABASE_PATH ?? './data/local/am_business_platform.db');
 const persistenceDir = path.resolve(process.env.PERSISTENT_DATA_PATH ?? './data/local');
@@ -61,14 +66,18 @@ if (!dbExists) {
   console.log(`[handoff] database file does not yet exist; it will be created at ${databasePath}`);
 }
 
-const healthCheck = await checkHttp('/api/health');
-const readinessCheck = await checkHttp('/api/readiness');
+const healthCheck = checkServer
+  ? await checkHttp('/api/health')
+  : { ok: false, body: 'not requested' };
+const readinessCheck = checkServer
+  ? await checkHttp('/api/readiness')
+  : { ok: false, body: 'not requested' };
 
-if (!healthCheck.ok) {
+if (checkServer && !healthCheck.ok) {
   console.log('[handoff] /api/health is not responding yet. Start the app with `npm run dev` before running `--check-server`.');
 }
 
-if (!readinessCheck.ok) {
+if (checkServer && !readinessCheck.ok) {
   console.log('[handoff] /api/readiness is not responding yet. Start the app with `npm run dev` before running `--check-server`.');
 }
 
@@ -91,6 +100,17 @@ if (issues.length > 0) {
     console.error(`- ${issue}`);
   }
   process.exitCode = 1;
+} else if (checkServer && (!healthCheck.ok || !readinessCheck.ok)) {
+  console.error('\n[handoff] SERVER_READY=false');
+  console.error('[handoff] LOCAL_HANDOFF_READY=false');
+  process.exitCode = 1;
 } else {
-  console.log('\n[handoff] READY_FOR_LOCAL_VALIDATION');
+  const localHandoffReady = buildReady && checkServer && healthCheck.ok && readinessCheck.ok;
+  console.log(`[handoff] ENVIRONMENT_READY=true`);
+  console.log(`[handoff] BUILD_READY=${buildReady}`);
+  console.log(`[handoff] SERVER_READY=${checkServer}`);
+  console.log(`[handoff] DATABASE_READY=${fs.existsSync(databasePath)}`);
+  console.log(`[handoff] APPLICATION_READY=${checkServer && healthCheck.ok && readinessCheck.ok}`);
+  console.log(`[handoff] LOCAL_HANDOFF_READY=${localHandoffReady}`);
+  if (!localHandoffReady) process.exitCode = 1;
 }

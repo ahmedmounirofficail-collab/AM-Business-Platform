@@ -39,6 +39,7 @@ const MainLayout: React.FC = () => {
     activeModule,
     dir,
     lang,
+    setActiveModule,
     setIsSearchOpen,
     isPlatformInitializing,
     platformInitError,

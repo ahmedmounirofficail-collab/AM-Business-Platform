@@ -16,5 +16,5 @@ coverage/
 *.sqlite-wal
 backups/
 test-results/
-data/
+/data/
 1234/

@@ -1,6 +1,6 @@
 # LOCAL HANDOFF
 
-HANDOFF_STATUS: READY_FOR_LOCAL_VALIDATION
+HANDOFF_STATUS: VERIFIED_IN_REPOSITORY
 
 ## 1. Project
 
@@ -23,9 +23,18 @@ AM Business Platform / AM Business OS
 
 ## 4. Installation
 
-```bash
-cp .env.example .env
-npm install
+Windows CMD:
+```bat
+cd C:\AM-Business-Platform-main
+npm ci
+copy .env.example .env
+```
+
+PowerShell equivalent:
+```powershell
+Set-Location C:\AM-Business-Platform-main
+npm ci
+Copy-Item .env.example .env
 ```
 
 ## 5. Environment
@@ -34,7 +43,7 @@ Use the values in `.env.example` and set real local secrets only on the target m
 
 Required local settings:
 
-```bash
+```text
 PORT=3000
 NODE_ENV=development
 COMPLIANCE_ENV=LOCAL
@@ -48,9 +57,13 @@ AUTH_TOKEN_SECRET=your-local-secret-at-least-32-chars
 JWT_SECRET=your-local-secret-at-least-32-chars
 ```
 
+The values above are safe local defaults. Set `AUTH_TOKEN_SECRET` to a
+random value of at least 32 characters for local authenticated testing.
+Production also requires a secure secret and persistent storage settings.
+
 Optional:
 
-```bash
+```text
 GEMINI_API_KEY=
 ETA_CLIENT_ID=
 ETA_CLIENT_SECRET=
@@ -72,7 +85,7 @@ INITIAL_CASHIER_PIN=
 
 ## 7. Startup
 
-```bash
+```bat
 npm run dev
 ```
 
@@ -118,8 +131,8 @@ Expected result:
 
 Run these locally on Windows after the app is installed:
 
-```bash
-npm install
+```bat
+npm ci
 npm run lint
 npm run build
 npm test
@@ -129,9 +142,13 @@ npm run dev
 
 If the server is already running:
 
-```bash
+```bat
 npm run validate:local -- --check-server
 ```
+
+With the server running, `--check-server` must receive HTTP 200 from both
+health and readiness. It reports `LOCAL_HANDOFF_READY=false` and exits
+non-zero when the server is down or the build is missing.
 
 ## 11. Backup and restore
 
@@ -155,18 +172,21 @@ Restore:
 3. Restart the app.
 4. Verify the company, products, customers, invoices, and ledger remain consistent.
 
-## 12. Known limitations
+## 13. Verification recorded for this repository
 
-- This environment blocked direct npm execution because the sandbox lacks the required `slirp4netns` dependency. This is an environment-only limitation and not an application architecture failure.
-- Final ERP validation must still be executed on the target Windows local machine.
-- Any statutory certification claims require real credentials and authority verification outside this sandbox.
+The current repository has passed `npm ci`, TypeScript lint, production build,
+development smoke, production-style smoke, live handoff validation, the full
+`npm test` suite, P0 transaction-boundary validation, P0-06 vertical runtime,
+P0-07 onboarding, product reconciliation, and invoice HTTP lifecycle checks.
+Statutory authority integrations still require their real credentials.
 
-## 13. AI Studio validation limitation
+## 14. Stop and backup
 
-NOT EXECUTED — ENVIRONMENT BLOCKED
+Stop a foreground server with `Ctrl+C`. The default SQLite database is
+`data\local\am_business_platform.db`. With the server stopped:
 
-The current AI Studio sandbox prevented npm execution and shell environment validation. The project is prepared for local validation, but the actual local runtime test and business-flow validation must be performed on a real Windows workstation.
+```bat
+copy data\local\am_business_platform.db data\local\am_business_platform_backup.db
+```
 
-## 14. Final status
-
-The current repository is handoff-ready for local validation and not blocked by code-level architecture changes.
+Keep the database, `-wal`, and `-shm` files together for a live WAL backup.
