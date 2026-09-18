@@ -199,6 +199,7 @@ audit evidence, and least-privilege RBAC.
 npm run lint
 npm run build
 npm run test:final-full-system-certification
+npm run test:financial-localization-costing
 npm test
 npm audit --audit-level=high
 ```
