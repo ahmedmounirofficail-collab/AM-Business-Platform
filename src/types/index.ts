@@ -510,6 +510,7 @@ export interface JournalEntry {
   date: string;
   postingDate: string;
   reference?: string;
+  entryType?: 'OPENING' | 'CLOSING' | 'ADJUSTING' | 'AUDITOR' | 'CORRECTION';
   description: string;
   status: DocumentLifecycleStatus;
   lines: JournalLine[];
@@ -2209,6 +2210,5 @@ export interface ProjectTimesheet {
 }
 
 export * from './procurement';
-
 
 

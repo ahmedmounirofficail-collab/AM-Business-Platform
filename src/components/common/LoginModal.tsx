@@ -36,8 +36,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   const { lang, setLang, tenants, activeTenant, setActiveTenant, platformIdentity, branding, login } = usePlatform();
   const isAr = lang === 'ar';
 
-  const [email, setEmail] = useState<string>('a.mounir369@gmail.com');
-  const [password, setPassword] = useState<string>('••••••••••••');
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [selectedTenantId, setSelectedTenantId] = useState<string>(activeTenant?.id || 'ten-001');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -50,8 +50,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     setErrorMsg(null);
     setLoading(true);
     try {
-      const passToUse = password === '••••••••••••' ? 'Admin@2026!' : password;
-      const res = await login(email, passToUse);
+      const res = await login(email, password);
       if (!res.success) {
         setErrorMsg(isAr ? 'بيانات الاعتماد غير صحيحة. يرجى التحقق من البريد وكلمة المرور.' : (res.error || 'Invalid credentials.'));
         setLoading(false);

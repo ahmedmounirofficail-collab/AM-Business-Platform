@@ -1845,6 +1845,45 @@ function initializePilotPersistence(): void {
     glFXSnapshots = initDurableCollection('glFXSnapshots', glFXSnapshots, pilotDb);
     glAuditTrail = initDurableCollection('glAuditTrail', glAuditTrail, pilotDb);
 
+    // On a clean production database, onboarding materializes the canonical
+    // accounting collections. Hydrate the GL projection from those same
+    // persisted accounts/periods before any report or posting route is used.
+    if (glAccounts.length === 0 && accounts.length > 0) {
+      glAccounts = accounts.map(a => ({
+        id: a.id,
+        tenantId: a.tenantId,
+        companyId: a.companyId,
+        code: a.code,
+        name: a.name,
+        nameAr: a.nameAr,
+        group: (a.category === 'Asset' ? 'Assets' : a.category === 'Liability' ? 'Liabilities' : a.category === 'Equity' ? 'Equity' : a.category === 'Revenue' ? 'Revenue' : 'OperatingExpense') as any,
+        accountType: a.accountType as any,
+        parentId: a.parentId || null,
+        level: a.level || 1,
+        isControlAccount: ['Receivable', 'Payable', 'Inventory', 'TaxPayable', 'TaxReceivable'].includes(a.accountType),
+        postingRestriction: 'POSTING_ALLOWED',
+        currency: a.currency || 'SAR',
+        balance: a.balance || 0,
+        isActive: a.isActive
+      }));
+      pilotDb.saveCollection('glAccounts', glAccounts);
+    }
+    if (glFiscalPeriods.length === 0 && fiscalPeriods.length > 0) {
+      glFiscalPeriods = fiscalPeriods.map(fp => ({
+        id: fp.id,
+        tenantId: fiscalYears.find(fy => fy.id === fp.fiscalYearId)?.tenantId || 'ten-001',
+        companyId: fiscalYears.find(fy => fy.id === fp.fiscalYearId)?.companyId || 'comp-001',
+        fiscalYearId: fp.fiscalYearId,
+        year: fiscalYears.find(fy => fy.id === fp.fiscalYearId)?.year || new Date(fp.startDate).getFullYear(),
+        periodNumber: fp.periodNumber,
+        periodName: `Period ${fp.periodNumber}`,
+        startDate: fp.startDate,
+        endDate: fp.endDate,
+        status: fp.isLocked ? 'CLOSED' : 'OPEN'
+      }));
+      pilotDb.saveCollection('glFiscalPeriods', glFiscalPeriods);
+    }
+
     // Fixed Assets & Asset Accounting
     fixedAssetClasses = initDurableCollection('fixedAssetClasses', fixedAssetClasses, pilotDb);
     fixedAssetMasters = initDurableCollection('fixedAssetMasters', fixedAssetMasters, pilotDb);
@@ -3684,7 +3723,65 @@ async function startServer() {
       return res.status(400).json({ error: `Double-entry validation failed: Total Debits (${totalDebit.toLocaleString()}) must equal Total Credits (${totalCredit.toLocaleString()})` });
     }
 
-    const tenantId = 'ten-001';
+    const tenantId = auth?.tenantId || req.body.tenantId || 'ten-001';
+    const companyId = auth?.companyId || req.body.companyId || 'comp-001';
+    const effectiveDate = postingDate || date || new Date().toISOString().split('T')[0];
+    const glPeriod = glFiscalPeriods.find(p => p.companyId === companyId && effectiveDate >= p.startDate && effectiveDate <= p.endDate);
+    if (!glPeriod) {
+      return res.status(400).json({ error: `No open GL fiscal period contains posting date ${effectiveDate}.` });
+    }
+    if (glPeriod.status === 'CLOSED' || glPeriod.status === 'CLOSING') {
+      return res.status(409).json({ error: `Fiscal period ${glPeriod.periodName} is not open for posting.` });
+    }
+
+    let persistedGlJournal: GLJournalEntry | undefined;
+    if (selectedType === 'OPENING') {
+      const glLines = lines.map((line: JournalLine, index: number) => ({
+        id: line.id || `opening-line-${index + 1}`,
+        lineNo: index + 1,
+        accountCode: line.accountCode,
+        accountName: line.accountName,
+        description: line.description || description,
+        debit: Number(line.debit || 0),
+        credit: Number(line.credit || 0),
+        currency: req.body.currency || 'SAR',
+        exchangeRate: 1,
+        baseCurrencyDebit: Number(line.debit || 0),
+        baseCurrencyCredit: Number(line.credit || 0)
+      }));
+      const createdGl = GeneralLedgerEngine.createJournalEntry({
+        tenantId,
+        companyId,
+        entryNumber: generateDocumentNumber(tenantId, 'JE'),
+        date: effectiveDate,
+        postingDate: effectiveDate,
+        fiscalYear: glPeriod.year,
+        fiscalPeriod: glPeriod.periodNumber,
+        journalType: 'OPENING',
+        reference: reference || 'OPENING-BALANCE',
+        description: description || 'Opening Balance',
+        lines: glLines,
+        createdBy: createdBy || auth?.sub || 'usr-001',
+        createdByName: createdByName || auth?.name || 'Administrator',
+        originatingDocumentType: 'OpeningBalance',
+        accounts: glAccounts,
+        periods: glFiscalPeriods
+      });
+      const postedGl = GeneralLedgerEngine.postJournalEntry(
+        createdGl.journalEntry,
+        glAccounts,
+        createdByName || auth?.name || 'Administrator'
+      );
+      persistedGlJournal = postedGl.updatedJournal;
+      glJournals.unshift(persistedGlJournal);
+      persistEntity('glJournals', persistedGlJournal, pilotDb);
+      for (const glAccount of glAccounts) {
+        persistEntity('glAccounts', glAccount, pilotDb);
+      }
+      glAuditTrail.unshift(createdGl.auditRecord, postedGl.auditRecord);
+      persistEntity('glAuditTrail', createdGl.auditRecord, pilotDb);
+      persistEntity('glAuditTrail', postedGl.auditRecord, pilotDb);
+    }
     const entryNumber = generateDocumentNumber(tenantId, 'JE');
 
     const rule = evaluateWorkflow(tenantId, 'JournalEntry', totalDebit);
@@ -3693,7 +3790,7 @@ async function startServer() {
     const newJE: JournalEntry = {
       id: `je-${Date.now()}`,
       tenantId,
-      companyId: 'comp-001',
+      companyId,
       entryNumber,
       date: date || new Date().toISOString().split('T')[0],
       postingDate: postingDate || date || new Date().toISOString().split('T')[0],
@@ -3707,7 +3804,9 @@ async function startServer() {
       createdBy: createdBy || 'usr-001',
       createdByName: createdByName || 'Ahmed Mounir',
       createdAt: new Date().toISOString(),
-      attachmentsCount: 0
+      attachmentsCount: 0,
+      entryType: selectedType as any,
+      originatingDocumentType: selectedType === 'OPENING' ? 'OpeningBalance' : undefined
     };
 
     if (!requiresApproval) {
@@ -3721,6 +3820,7 @@ async function startServer() {
           } else {
             acc.balance += (Number(l.credit) - Number(l.debit));
           }
+          persistEntity('accounts', acc, pilotDb);
         }
       });
     } else {
@@ -3743,6 +3843,7 @@ async function startServer() {
     }
 
     journalEntries.unshift(newJE);
+    persistEntity('journalEntries', newJE, pilotDb);
 
     recordAudit(
       tenantId,
@@ -8044,6 +8145,9 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
 
     glClosingSnapshots.unshift(snapshot);
     glAuditTrail.unshift(auditRecord);
+    persistEntity('glFiscalPeriods', period, pilotDb);
+    persistEntity('glClosingSnapshots', snapshot, pilotDb);
+    persistEntity('glAuditTrail', auditRecord, pilotDb);
 
     res.json({ success: true, period, snapshot });
   });
@@ -8071,8 +8175,54 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
       glJournals.unshift(retainedEarningsJE);
       glYearEndRecords.push(yearEndRecord);
       glAuditTrail.unshift(auditRecord);
+      persistEntity('glFiscalYears', fy, pilotDb);
+      persistEntity('glJournals', retainedEarningsJE, pilotDb);
+      for (const account of glAccounts) {
+        persistEntity('glAccounts', account, pilotDb);
+      }
+      persistEntity('glYearEndRecords', yearEndRecord, pilotDb);
+      persistEntity('glAuditTrail', auditRecord, pilotDb);
 
-      res.status(201).json({ yearEndRecord, retainedEarningsJE });
+      const nextYearNumber = fy.year + 1;
+      let nextFiscalYear = glFiscalYears.find(item => item.year === nextYearNumber);
+      if (!nextFiscalYear) {
+        nextFiscalYear = {
+          id: `fy-${nextYearNumber}`,
+          tenantId: fy.tenantId,
+          companyId: fy.companyId,
+          year: nextYearNumber,
+          startDate: `${nextYearNumber}-01-01`,
+          endDate: `${nextYearNumber}-12-31`,
+          isClosed: false
+        };
+        glFiscalYears.push(nextFiscalYear);
+        persistEntity('glFiscalYears', nextFiscalYear, pilotDb);
+      }
+      const nextPeriods = Array.from({ length: 12 }, (_, index) => {
+        const periodNumber = index + 1;
+        const start = new Date(Date.UTC(nextYearNumber, index, 1));
+        const end = new Date(Date.UTC(nextYearNumber, index + 1, 0));
+        return {
+          id: `fp-${nextYearNumber}-${periodNumber}`,
+          tenantId: fy.tenantId,
+          companyId: fy.companyId,
+          fiscalYearId: nextFiscalYear!.id,
+          year: nextYearNumber,
+          periodNumber,
+          periodName: start.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' }),
+          startDate: start.toISOString().slice(0, 10),
+          endDate: end.toISOString().slice(0, 10),
+          status: 'OPEN' as const
+        };
+      });
+      for (const nextPeriod of nextPeriods) {
+        if (!glFiscalPeriods.some(period => period.id === nextPeriod.id)) {
+          glFiscalPeriods.push(nextPeriod);
+          persistEntity('glFiscalPeriods', nextPeriod, pilotDb);
+        }
+      }
+
+      res.status(201).json({ yearEndRecord, retainedEarningsJE, nextFiscalYear, nextPeriods });
     } catch (err: any) {
       res.status(400).json({ error: err.message });
     }

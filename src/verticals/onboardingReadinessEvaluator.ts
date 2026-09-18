@@ -907,14 +907,18 @@ export class OnboardingMaterializer {
       if (profileDef.defaultCoaTemplate && profileDef.defaultCoaTemplate.length > 0) {
         for (const acctTpl of profileDef.defaultCoaTemplate) {
           const acctId = `acc-${companyId}-${acctTpl.code}`;
-          const cat = acctTpl.category === 'REVENUE' ? 'Revenue' : 
-                      acctTpl.category === 'EXPENSE' ? 'Expense' :
-                      acctTpl.category === 'ASSET' ? 'Asset' :
-                      acctTpl.category === 'LIABILITY' ? 'Liability' : 'Equity';
-          const aType = acctTpl.category === 'REVENUE' ? 'Revenue' : 
-                        acctTpl.category === 'EXPENSE' ? 'Expense' :
-                        acctTpl.category === 'ASSET' ? 'Cash' :
-                        acctTpl.category === 'LIABILITY' ? 'Payable' : 'Equity';
+          const normalizedType = String(acctTpl.type || '').toUpperCase();
+          const normalizedCategory = String(acctTpl.category || '').toUpperCase();
+          const cat = normalizedType === 'REVENUE' || normalizedCategory.includes('REVENUE') ? 'Revenue' :
+                      normalizedType === 'EXPENSE' || normalizedCategory.includes('EXPENSE') || normalizedCategory === 'COGS' ? 'Expense' :
+                      normalizedType === 'LIABILITY' || normalizedCategory === 'PAYABLE' || normalizedCategory === 'TAX' ? 'Liability' :
+                      normalizedType === 'EQUITY' ? 'Equity' : 'Asset';
+          const aType = cat === 'Revenue' ? 'Revenue' :
+                        cat === 'Expense' ? 'Expense' :
+                        cat === 'Liability' ? (normalizedCategory === 'TAX' ? 'TaxPayable' : 'Payable') :
+                        normalizedCategory === 'BANK' ? 'Cash' :
+                        normalizedCategory === 'RECEIVABLE' ? 'Receivable' :
+                        normalizedCategory === 'INVENTORY' ? 'Inventory' : 'Cash';
           const accountEntity: Account = {
             id: acctId,
             tenantId,
@@ -932,6 +936,23 @@ export class OnboardingMaterializer {
           txDb.saveEntity('accounts', accountEntity, tenantId, companyId);
         }
       }
+      // Every production chart must have a posting-enabled equity destination
+      // for opening balances, even when a vertical template omits one.
+      const openingEquity: Account = {
+        id: `acc-${companyId}-3010`,
+        tenantId,
+        companyId,
+        code: '3010',
+        name: 'Opening Balance Equity',
+        nameAr: 'حقوق الملكية والأرصدة الافتتاحية',
+        category: 'Equity',
+        accountType: 'Equity',
+        balance: 0,
+        currency: currencyCode,
+        isActive: true,
+        level: 3
+      };
+      txDb.saveEntity('accounts', openingEquity, tenantId, companyId);
 
       // 8. TAX RULE
       const taxRateDecimal = (companyEntity.taxRate || 15) / 100;

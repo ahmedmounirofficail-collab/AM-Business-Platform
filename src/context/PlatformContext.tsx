@@ -468,7 +468,10 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const triggerReload = () => setReloadTrigger(prev => prev + 1);
 
-  const login = useCallback(async (email: string, password = 'Admin@2026!') => {
+  const login = useCallback(async (email: string, password?: string) => {
+    if (!password) {
+      return { success: false, error: 'Password is required.' };
+    }
     try {
       const res = await ApiClient.login(email, password);
       if (res.success && res.user) {
@@ -481,6 +484,11 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, error: err?.message || 'Login failed' };
     }
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dir = dir;
+    document.documentElement.lang = lang;
+  }, [dir, lang]);
 
   const logout = useCallback(() => {
     ApiClient.setToken(null);

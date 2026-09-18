@@ -25,15 +25,23 @@ import { ReconciliationCenter } from './ReconciliationCenter';
 import { MonthEndCloseWorkspace } from './MonthEndCloseWorkspace';
 
 export const AccountingView: React.FC = () => {
-  const { lang, triggerReload, reloadTrigger } = usePlatform();
+  const { lang, triggerReload, reloadTrigger, activeCompany, currentUser } = usePlatform();
   const isAr = lang === 'ar';
 
-  const [subTab, setSubTab] = useState<'gl_engine' | 'journals' | 'postingRules' | 'financialEvents' | 'coa' | 'trial' | 'pl' | 'balanceSheet' | 'reconciliation' | 'periodClose'>('gl_engine');
+  const [subTab, setSubTab] = useState<'gl_engine' | 'journals' | 'opening' | 'postingRules' | 'financialEvents' | 'coa' | 'trial' | 'pl' | 'balanceSheet' | 'reconciliation' | 'periodClose'>('gl_engine');
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [journals, setJournals] = useState<JournalEntry[]>([]);
   const [postingRules, setPostingRules] = useState<PostingRule[]>([]);
   const [financialEvents, setFinancialEvents] = useState<FinancialEvent[]>([]);
+  const [openingDate, setOpeningDate] = useState(new Date().toISOString().slice(0, 10));
+  const [openingDescription, setOpeningDescription] = useState('');
+  const [openingLines, setOpeningLines] = useState<JournalLine[]>([
+    { id: 'opening-1', accountCode: '', accountName: '', description: '', debit: 0, credit: 0 },
+    { id: 'opening-2', accountCode: '', accountName: '', description: '', debit: 0, credit: 0 }
+  ]);
+  const [openingError, setOpeningError] = useState('');
+  const [openingNotice, setOpeningNotice] = useState('');
 
   // Create Manual Adjusting Journal Entry Modal
   const [isCreateJeOpen, setIsCreateJeOpen] = useState(false);
@@ -137,6 +145,66 @@ export const AccountingView: React.FC = () => {
     }
   };
 
+  const updateOpeningLine = (id: string, field: keyof JournalLine, value: string | number) => {
+    setOpeningLines(lines => lines.map(line => {
+      if (line.id !== id) return line;
+      if (field === 'accountCode') {
+        const account = accounts.find(item => item.code === value);
+        return { ...line, accountCode: String(value), accountId: account?.id, accountName: account ? (isAr ? account.nameAr : account.name) : '' };
+      }
+      return { ...line, [field]: field === 'debit' || field === 'credit' ? Number(value) || 0 : value };
+    }));
+    setOpeningError('');
+  };
+
+  const handleOpeningBalanceSubmit = async () => {
+    setOpeningError('');
+    setOpeningNotice('');
+    const validLines = openingLines.filter(line => line.accountCode && (Number(line.debit) > 0 || Number(line.credit) > 0));
+    const totalDebit = validLines.reduce((sum, line) => sum + Number(line.debit || 0), 0);
+    const totalCredit = validLines.reduce((sum, line) => sum + Number(line.credit || 0), 0);
+    if (!openingDescription.trim()) {
+      setOpeningError(isAr ? 'يرجى إدخال بيان القيد الافتتاحي.' : 'Opening balance description is required.');
+      return;
+    }
+    if (validLines.length < 2 || validLines.some(line => !accounts.some(account => account.code === line.accountCode))) {
+      setOpeningError(isAr ? 'اختر حسابات صحيحة من دليل الحسابات لكل سطر.' : 'Select valid accounts from the Chart of Accounts for every line.');
+      return;
+    }
+    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+      setOpeningError(isAr
+        ? `لا يمكن حفظ القيد الافتتاحي لأن إجمالي المدين لا يساوي إجمالي الدائن. المدين: ${totalDebit.toLocaleString()}، الدائن: ${totalCredit.toLocaleString()}، الفرق: ${Math.abs(totalDebit - totalCredit).toLocaleString()}`
+        : `Opening balance cannot be saved because debits do not equal credits. Debit: ${totalDebit.toLocaleString()}, Credit: ${totalCredit.toLocaleString()}, Difference: ${Math.abs(totalDebit - totalCredit).toLocaleString()}`);
+      return;
+    }
+    try {
+      await ApiClient.createJournalEntry({
+        date: openingDate,
+        postingDate: openingDate,
+        description: openingDescription.trim(),
+        entryType: 'OPENING',
+        documentType: 'OPENING_BALANCE',
+        originatingDocumentType: 'OpeningBalance',
+        lines: validLines,
+        totalDebit,
+        totalCredit,
+        companyId: activeCompany?.id || '',
+        createdBy: currentUser?.id || 'system',
+        createdByName: currentUser?.name || 'Administrator',
+        currency: activeCompany?.currency || activeCompany?.baseCurrency || 'SAR'
+      });
+      setOpeningNotice(isAr ? 'تم حفظ القيد الافتتاحي في دفتر الأستاذ بنجاح.' : 'Opening balance was saved to the existing ledger successfully.');
+      setOpeningLines([
+        { id: `opening-${Date.now()}-1`, accountCode: '', accountName: '', description: '', debit: 0, credit: 0 },
+        { id: `opening-${Date.now()}-2`, accountCode: '', accountName: '', description: '', debit: 0, credit: 0 }
+      ]);
+      setOpeningDescription('');
+      triggerReload();
+    } catch (err: any) {
+      setOpeningError(err?.message || (isAr ? 'تعذر حفظ القيد الافتتاحي.' : 'Unable to save opening balance.'));
+    }
+  };
+
   // Create Account
   const handleCreateAccount = async () => {
     if (!newAccCode || !newAccName) return;
@@ -185,6 +253,13 @@ export const AccountingView: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setSubTab('opening')}
+            className="btn-am-primary flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-lg shadow-sm cursor-pointer"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>{isAr ? 'الأرصدة الافتتاحية' : 'Opening Balances'}</span>
+          </button>
+          <button
             onClick={() => setIsCreateJeOpen(true)}
             className="btn-am-primary flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-lg shadow-sm cursor-pointer"
           >
@@ -214,6 +289,15 @@ export const AccountingView: React.FC = () => {
         >
           <FileText className="w-3.5 h-3.5" />
           <span>{isAr ? 'دفتر قيود اليومية' : 'Journal Entries Ledger'}</span>
+        </button>
+
+        <button
+          onClick={() => setSubTab('opening')}
+          className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+            subTab === 'opening' ? 'bg-brand-navy text-brand-gold shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-white/70 dark:hover:bg-slate-700/60'
+          }`}
+        >
+          {isAr ? 'الأرصدة الافتتاحية' : 'Opening Balances'}
         </button>
 
         <button
@@ -328,6 +412,46 @@ export const AccountingView: React.FC = () => {
                       <span className="px-2 py-0.5 rounded-md font-bold text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
                         Manual Adjustment
                       </span>
+                    )}
+
+                    {subTab === 'opening' && (
+                      <div className="report-card rounded-xl p-5 shadow-sm space-y-5">
+                        <div>
+                          <h3 className="font-bold text-slate-900 dark:text-white text-sm">{isAr ? 'الأرصدة الافتتاحية' : 'Opening Balances'}</h3>
+                          <p className="mt-1 text-xs text-slate-500">{isAr ? 'سيتم حفظ هذا الإدخال كقيد فعلي في دفتر الأستاذ الحالي.' : 'This entry is saved as a real journal entry in the existing ledger.'}</p>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <label className="text-xs font-semibold">{isAr ? 'تاريخ الافتتاح' : 'Opening date'}
+                            <input type="date" value={openingDate} onChange={event => setOpeningDate(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800" />
+                          </label>
+                          <label className="text-xs font-semibold">{isAr ? 'البيان' : 'Description'}
+                            <input value={openingDescription} onChange={event => setOpeningDescription(event.target.value)} placeholder={isAr ? 'قيد افتتاحي' : 'Opening Balance'} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800" />
+                          </label>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full min-w-[680px] text-xs">
+                            <thead><tr className="border-b border-slate-200 text-slate-500"><th className="px-3 py-2 text-left">{isAr ? 'الحساب' : 'Account'}</th><th className="px-3 py-2 text-right">{isAr ? 'مدين' : 'Debit'}</th><th className="px-3 py-2 text-right">{isAr ? 'دائن' : 'Credit'}</th><th className="px-3 py-2 text-left">{isAr ? 'البيان' : 'Line description'}</th><th /></tr></thead>
+                            <tbody>
+                              {openingLines.map(line => (
+                                <tr key={line.id} className="border-b border-slate-100">
+                                  <td className="px-3 py-2"><select value={line.accountCode} onChange={event => updateOpeningLine(line.id, 'accountCode', event.target.value)} className="w-full rounded border border-slate-300 px-2 py-2 dark:border-slate-700 dark:bg-slate-800"><option value="">{isAr ? 'اختر حسابًا' : 'Select account'}</option>{accounts.filter(account => account.isActive).map(account => <option key={account.id} value={account.code}>{account.code} - {isAr ? account.nameAr : account.name}</option>)}</select></td>
+                                  <td className="px-3 py-2"><input type="number" min="0" step="0.01" value={line.debit || ''} onChange={event => updateOpeningLine(line.id, 'debit', event.target.value)} className="w-full rounded border border-slate-300 px-2 py-2 text-right dark:border-slate-700 dark:bg-slate-800" /></td>
+                                  <td className="px-3 py-2"><input type="number" min="0" step="0.01" value={line.credit || ''} onChange={event => updateOpeningLine(line.id, 'credit', event.target.value)} className="w-full rounded border border-slate-300 px-2 py-2 text-right dark:border-slate-700 dark:bg-slate-800" /></td>
+                                  <td className="px-3 py-2"><input value={line.description} onChange={event => updateOpeningLine(line.id, 'description', event.target.value)} className="w-full rounded border border-slate-300 px-2 py-2 dark:border-slate-700 dark:bg-slate-800" /></td>
+                                  <td className="px-3 py-2"><button type="button" onClick={() => setOpeningLines(lines => lines.filter(item => item.id !== line.id))} disabled={openingLines.length <= 2} className="text-rose-600 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <button type="button" onClick={() => setOpeningLines(lines => [...lines, { id: `opening-${Date.now()}`, accountCode: '', accountName: '', description: '', debit: 0, credit: 0 }])} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold dark:border-slate-700">{isAr ? 'إضافة سطر' : 'Add line'}</button>
+                          <div className="text-xs font-semibold">{isAr ? 'المدين' : 'Debit'}: {openingLines.reduce((sum, line) => sum + Number(line.debit || 0), 0).toLocaleString()} · {isAr ? 'الدائن' : 'Credit'}: {openingLines.reduce((sum, line) => sum + Number(line.credit || 0), 0).toLocaleString()}</div>
+                          <button type="button" onClick={handleOpeningBalanceSubmit} className="rounded-lg bg-brand-navy px-4 py-2 text-xs font-bold text-brand-gold">{isAr ? 'حفظ القيد الافتتاحي' : 'Save Opening Entry'}</button>
+                        </div>
+                        {openingError && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{openingError}</div>}
+                        {openingNotice && <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">{openingNotice}</div>}
+                      </div>
                     )}
 
                     <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${

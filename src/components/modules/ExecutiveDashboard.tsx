@@ -304,6 +304,9 @@ export const ExecutiveDashboard: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setActiveModule('accounting')} className="px-3 py-2 rounded-lg text-xs font-semibold border border-brand-gold text-brand-navy dark:text-brand-gold transition hover:bg-brand-gold/10">
+            {isAr ? 'إدخال الأرصدة الافتتاحية' : 'Enter opening balances'}
+          </button>
           <button onClick={() => setActiveModule('sales')} className="px-3 py-2 rounded-lg text-xs font-semibold text-white transition hover:opacity-90" style={{ backgroundColor: branding?.primaryColor || '#0B1F3A' }}>
             {isAr ? 'فاتورة بيع جديدة' : 'New sales invoice'}
           </button>
@@ -312,6 +315,14 @@ export const ExecutiveDashboard: React.FC = () => {
           </button>
         </div>
       </header>
+
+      {journals.length === 0 && invoices.length === 0 && purchaseInvoices.length === 0 && inventory.length === 0 && (
+        <section className="rounded-xl border border-brand-gold/40 bg-brand-gold/10 p-5">
+          <h2 className="font-bold text-slate-900 dark:text-white">{isAr ? 'لم يتم إدخال أرصدة افتتاحية بعد' : 'No opening balances have been entered yet'}</h2>
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{isAr ? 'ابدأ بإدخال الأرصدة الافتتاحية من خلال دفتر المحاسبة.' : 'Start by entering opening balances in the accounting ledger.'}</p>
+          <button onClick={() => setActiveModule('accounting')} className="mt-3 rounded-lg bg-brand-navy px-4 py-2 text-xs font-bold text-brand-gold">{isAr ? 'إدخال الأرصدة الافتتاحية' : 'Enter opening balances'}</button>
+        </section>
+      )}
 
       <WorkflowGuidance
         title={isAr ? 'كيفية قراءة لوحة الأعمال' : 'How to read this dashboard'}

@@ -274,7 +274,8 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
       if (wizardState) {
         setWizardState({ ...wizardState, isCompleted: true });
       }
-      markOnboardingCompleted();
+      // Keep the wizard mounted so the user can review the completion result
+      // and explicitly choose whether to open Opening Balances or the dashboard.
     } catch (err: any) {
       console.error('Certification error:', err);
       setRequestError(isAr ? 'تعذر إكمال الإعداد. يرجى إعادة المحاولة.' : 'Setup could not be completed. Please try again.');
@@ -292,6 +293,42 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
     );
   }
 
+  if (certificate && wizardState?.isCompleted) {
+    return (
+      <div className="min-h-full bg-[#061224] px-4 py-10 text-white sm:px-8" dir={isAr ? 'rtl' : 'ltr'}>
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-8 flex items-center gap-4">
+            <img src="/am-monogram.svg" alt="AM CONSULTANT" className="h-16 w-16 rounded-xl border border-[#C9A227] bg-[#0B1F3A] p-3" />
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#C9A227]">AM CONSULTANT</p>
+              <h1 className="mt-1 text-3xl font-black">{isAr ? 'تم إعداد منشأتك بنجاح' : 'Your business is set up successfully'}</h1>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-[#0B1F3A] p-6 shadow-2xl sm:p-8">
+            <div className="grid gap-3 sm:grid-cols-2 text-sm">
+              <div><span className="text-slate-400">{isAr ? 'المنشأة' : 'Business'}:</span> {activeCompany?.name || formData.companyName || formData.tenantName}</div>
+              <div><span className="text-slate-400">{isAr ? 'النشاط' : 'Activity'}:</span> {wizardState.activeProfile?.name || formData.profileId}</div>
+              <div><span className="text-slate-400">{isAr ? 'العملة' : 'Currency'}:</span> {activeCompany?.currency || formData.baseCurrency}</div>
+              <div><span className="text-slate-400">{isAr ? 'السنة المالية' : 'Fiscal year'}:</span> {formData.fiscalYearStart || '—'}</div>
+            </div>
+            <div className="mt-6 rounded-xl border border-emerald-400/30 bg-emerald-950/30 p-4 text-sm text-emerald-100">
+              <p className="font-bold">{isAr ? 'قاعدة البيانات جاهزة للعمل' : 'Your database is ready for work'}</p>
+              <p className="mt-1 text-emerald-200/80">{isAr ? 'لم يتم إدخال أي أرصدة أو حركات تشغيلية تلقائيًا.' : 'No balances or operational transactions were entered automatically.'}</p>
+            </div>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button type="button" onClick={() => { markOnboardingCompleted(); setActiveModule('accounting'); }} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#C9A227] px-5 py-3 font-bold text-[#061224]">
+                {isAr ? 'إدخال الأرصدة الافتتاحية' : 'Enter Opening Balances'}
+              </button>
+              <button type="button" onClick={() => { markOnboardingCompleted(); setActiveModule('dashboard'); }} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-white/20 px-5 py-3 font-bold text-white">
+                {isAr ? 'الدخول إلى البرنامج' : 'Enter the program'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loadError) {
     if (!companyId || !tenantId) {
       return (
@@ -300,7 +337,8 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
             <div className="mb-8 flex items-center gap-4">
               <img src="/am-monogram.svg" alt="AM" className="h-16 w-16 rounded-xl border border-[#C9A227] bg-[#0B1F3A] p-3" />
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#C9A227]">AM Business Platform</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#C9A227]">AM CONSULTANT</p>
+                <p className="text-[11px] text-slate-300">{isAr ? 'منصة مالية وإدارية للمؤسسات' : 'Financial & Management Platform'}</p>
                 <h1 className="mt-1 text-3xl font-black">{isAr ? 'ابدأ إعداد منشأتك' : 'Set up your business'}</h1>
               </div>
             </div>

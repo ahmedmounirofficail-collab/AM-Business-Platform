@@ -58,6 +58,7 @@ export interface GLAccount {
 }
 
 export type GLJournalType = 
+  | 'OPENING'
   | 'MANUAL' 
   | 'AUTOMATIC' 
   | 'FINANCIAL_EVENT' 
