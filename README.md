@@ -129,3 +129,13 @@ pilot functionality rather than presented as fully certified.
 Do not commit generated SQLite files, WAL files, uploaded runtime assets,
 backups, or test output. Use migrations/seed data for reproducible setup and
 configure runtime storage outside the repository.
+## XLSX export dependency risk
+
+Report workbooks are generated with `xlsx` and are verified as real OOXML workbooks by
+`npm run test:real-exports`. The current upstream package has two high-severity advisories
+with no published fix. AM Business Platform uses the package only to generate server-side
+workbooks from trusted internal report objects; it does not parse or import user-supplied
+XLSX files. The export endpoint does not accept workbook content, and generated files are
+written to the HTTP response as base64. Keep `npm audit --audit-level=high` in release
+checks and replace `xlsx` with a maintained writer when a compatible, security-reviewed
+alternative is selected.

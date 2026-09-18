@@ -45,13 +45,24 @@ import {
   KPITraceabilityLineage
 } from '../types/reporting';
 import PDFDocument from 'pdfkit';
-import * as XLSX from 'xlsx';
+import writeExcelFile from 'write-excel-file/node';
 
 // In-memory append-only registry for immutable report snapshots
 const REPORT_SNAPSHOT_REGISTRY: ReportSnapshotRecord[] = [];
 
 
 export class FinancialReportingEngine {
+  private static accountCategory(acc: Account | GLAccount): string {
+    const value = (acc as any).category || (acc as any).accountCategory;
+    if (value) return value;
+    const group = (acc as any).group;
+    if (group === 'Assets') return 'Asset';
+    if (group === 'Liabilities') return 'Liability';
+    if (group === 'Equity') return 'Equity';
+    if (group === 'Revenue') return 'Revenue';
+    if (group === 'OperatingExpense' || group === 'OtherIncomeExpense') return 'Expense';
+    return 'Asset';
+  }
 
   public static async exportReportFile(
     reportData: any,
@@ -62,10 +73,13 @@ export class FinancialReportingEngine {
     const base = this.exportReport(reportData, format, customTitle, user);
     if (format === 'EXCEL') {
       const rows = FinancialReportingEngine.flattenReport(reportData);
-      const workbook = XLSX.utils.book_new();
-      const worksheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{ Field: 'Report', Value: customTitle }]);
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
-      const content = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+      const sheetData = [
+        ['Field', 'Value'],
+        ...(rows.length ? rows : [{ Field: 'Report', Value: customTitle }])
+          .map(row => [row.Field, row.Value])
+      ];
+      const workbookBuffer = await writeExcelFile([{ data: sheetData, sheet: 'Report' }]).toBuffer();
+      const content = workbookBuffer.toString('base64');
       return {
         ...base,
         fileName: base.fileName.replace(/\.xls$/, '.xlsx'),
@@ -160,7 +174,7 @@ export class FinancialReportingEngine {
     accounts.forEach(acc => {
       const code = (acc as any).code || (acc as any).accountCode;
       const name = (acc as any).name || (acc as any).accountName;
-      const category = (acc as any).category || (acc as any).accountCategory;
+      const category = this.accountCategory(acc);
       const balance = Math.abs((acc as any).balance || (acc as any).currentBalance || 0);
       const isCurrent = (acc as any).accountType === 'Cash' || (acc as any).accountType === 'Receivable' || (acc as any).accountType === 'Inventory' || (acc as any).accountType === 'Payable' || (acc as any).accountType === 'TaxPayable';
 
@@ -242,7 +256,7 @@ export class FinancialReportingEngine {
     accounts.forEach(acc => {
       const code = (acc as any).code || (acc as any).accountCode;
       const name = (acc as any).name || (acc as any).accountName;
-      const category = (acc as any).category || (acc as any).accountCategory;
+      const category = this.accountCategory(acc);
       const balance = Math.abs((acc as any).balance || (acc as any).currentBalance || 0);
 
       if (category === 'Revenue' || code.startsWith('4')) {
@@ -433,7 +447,7 @@ export class FinancialReportingEngine {
     const rows: ReportingTrialBalanceRow[] = accounts.map(acc => {
       const code = (acc as any).code || (acc as any).accountCode;
       const name = (acc as any).name || (acc as any).accountName;
-      const category = (acc as any).category || (acc as any).accountCategory || 'Asset';
+      const category = this.accountCategory(acc);
       const balance = (acc as any).balance || (acc as any).currentBalance || 0;
 
       const isDebitNature = category === 'Asset' || category === 'Expense';

@@ -417,7 +417,7 @@ export const INITIAL_ACCOUNTS: Account[] = [
 
   // Equity
   { id: 'acc-3010', tenantId: 'ten-001', companyId: 'comp-001', code: '3010', name: 'Share Capital', nameAr: 'رأس المال المدفوع', category: 'Equity', accountType: 'Equity', balance: 2000000, currency: 'SAR', isActive: true, level: 1 },
-  { id: 'acc-3020', tenantId: 'ten-001', companyId: 'comp-001', code: '3020', name: 'Retained Earnings', nameAr: 'الأرباح المبقاة', category: 'Equity', accountType: 'Equity', balance: 892500, currency: 'SAR', isActive: true, level: 1 },
+  { id: 'acc-3020', tenantId: 'ten-001', companyId: 'comp-001', code: '3020', name: 'Retained Earnings', nameAr: 'الأرباح المبقاة', category: 'Equity', accountType: 'Equity', balance: 937500, currency: 'SAR', isActive: true, level: 1 },
 
   // Revenue
   { id: 'acc-4010', tenantId: 'ten-001', companyId: 'comp-001', code: '4010', name: 'Sales Revenue - Cloud SaaS', nameAr: 'إيرادات مبيعات الاشتراكات السحابية', category: 'Revenue', accountType: 'Revenue', balance: 1250000, currency: 'SAR', isActive: true, level: 1 },

@@ -173,7 +173,7 @@ export class ReportingEngine {
         stockQty: item.stockQty,
         unitCost: item.costPrice,
         valuationMethod: item.valuationMethod,
-        totalValuation
+        totalValuation: valuation
       };
     });
 

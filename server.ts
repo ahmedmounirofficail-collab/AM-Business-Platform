@@ -4070,7 +4070,9 @@ async function startServer() {
         result.financialEventData.partyId,
         result.financialEventData.partyName,
         result.financialEventData.description,
-        result.financialEventData.triggeredBy
+        result.financialEventData.triggeredBy,
+        undefined,
+        resolveFinancialPeriod(new Date().toISOString().split('T')[0], result.financialEventData.tenantId, result.financialEventData.companyId)
       );
 
       // 3. Keep backward compatible StockMovement display array synced
@@ -4211,7 +4213,9 @@ async function startServer() {
         result.financialEventData.partyId,
         result.financialEventData.partyName,
         result.financialEventData.description,
-        result.financialEventData.triggeredBy
+        result.financialEventData.triggeredBy,
+        undefined,
+        resolveFinancialPeriod(new Date().toISOString().split('T')[0], result.financialEventData.tenantId, result.financialEventData.companyId)
       );
 
       // 3. Keep backward compatible StockMovement display array synced
@@ -4320,7 +4324,9 @@ async function startServer() {
         result.financialEventData.partyId,
         result.financialEventData.partyName,
         result.financialEventData.description,
-        result.financialEventData.triggeredBy
+        result.financialEventData.triggeredBy,
+        undefined,
+        resolveFinancialPeriod(new Date().toISOString().split('T')[0], result.financialEventData.tenantId, result.financialEventData.companyId)
       );
 
       // 3. Keep backward compatible StockMovement display array synced
@@ -4422,7 +4428,9 @@ async function startServer() {
         result.financialEventData.partyId,
         result.financialEventData.partyName,
         result.financialEventData.description,
-        result.financialEventData.triggeredBy
+        result.financialEventData.triggeredBy,
+        undefined,
+        resolveFinancialPeriod(new Date().toISOString().split('T')[0], result.financialEventData.tenantId, result.financialEventData.companyId)
       );
 
       const movement: StockMovement = {

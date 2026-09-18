@@ -16,5 +16,9 @@ coverage/
 *.sqlite-wal
 backups/
 test-results/
-/data/
+/data/*
+!/data/branding_assets/
+/data/branding_assets/*
+!/data/branding_assets/platform/
+!/data/branding_assets/platform/*.svg
 1234/

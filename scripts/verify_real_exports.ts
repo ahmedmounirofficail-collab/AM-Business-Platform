@@ -1,8 +1,9 @@
 import { spawn, ChildProcess } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import * as XLSX from 'xlsx';
+import readXlsxFile from 'read-excel-file/node';
 import { PDFParse } from 'pdf-parse';
+import { FinancialReportingEngine } from '../src/engine/financialReportingEngine';
 
 const port = 3321;
 const baseUrl = `http://127.0.0.1:${port}`;
@@ -59,7 +60,7 @@ async function main(): Promise<void> {
       body: JSON.stringify({ email: 'a.mounir369@gmail.com', password: 'Admin@2026!' })
     });
     assert(login.status === 200 && login.body.token, 'export verification login failed');
-    const headers = { authorization: `Bearer ${login.body.token}` };
+    const headers = { authorization: "Bearer " + login.body.token };
     const report = await request('/api/v1/reports/trial-balance', { headers });
     assert(report.status === 200, 'trial balance source report failed');
 
@@ -77,7 +78,7 @@ async function main(): Promise<void> {
     const parsedPdf = await parser.getText();
     await parser.destroy();
     assert(parsedPdf.total === pageCount && parsedPdf.text.includes('AM Commercial Test Company Trial Balance'), 'PDF reader could not parse expected report content');
-    await fs.writeFile('/tmp/am-commercial-trial-balance.pdf', pdf);
+    await fs.writeFile('data/am-commercial-trial-balance.pdf', pdf);
 
     const xlsxExport = await request('/api/v1/reports/export', {
       method: 'POST',
@@ -87,13 +88,20 @@ async function main(): Promise<void> {
     assert(xlsxExport.status === 200 && xlsxExport.body.fileName.endsWith('.xlsx'), 'XLSX export did not return .xlsx');
     assert(xlsxExport.body.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'XLSX MIME type is not real workbook MIME');
     const xlsx = Buffer.from(xlsxExport.body.content, 'base64');
-    const workbook = XLSX.read(xlsx, { type: 'buffer' });
-    assert(workbook.SheetNames.includes('Report'), 'XLSX Report sheet is missing');
-    const rows = XLSX.utils.sheet_to_json(workbook.Sheets.Report, { header: 1 }) as unknown[][];
+    const rows = await readXlsxFile(xlsx, { sheet: 'Report' });
     assert(rows.length > 1, 'XLSX contains no data rows');
-    await fs.writeFile('/tmp/am-commercial-trial-balance.xlsx', xlsx);
-    console.log(`PASS: real PDF ${pdf.length} bytes, pages=${pageCount}, parsedPages=${parsedPdf.total}, saved=/tmp/am-commercial-trial-balance.pdf`);
-    console.log(`PASS: real XLSX ${xlsx.length} bytes, sheets=${workbook.SheetNames.join(',')}, rows=${rows.length}, saved=/tmp/am-commercial-trial-balance.xlsx`);
+    const multilingualExport = await FinancialReportingEngine.exportReportFile({
+      English: 'Total revenue',
+      العربية: 'إجمالي الإيرادات',
+      totals: { English: 1250.75, العربية: 1250.75 }
+    }, 'EXCEL', 'Bilingual totals');
+    const multilingualRows = await readXlsxFile(Buffer.from(multilingualExport.content, 'base64'), { sheet: 'Report' });
+    const multilingualText = multilingualRows.flat().map(value => String(value ?? '')).join('|');
+    assert(multilingualText.includes('إجمالي الإيرادات') && multilingualText.includes('Total revenue'), 'XLSX lost Arabic/English values');
+    assert(multilingualText.includes('1250.75'), 'XLSX lost bilingual totals');
+    await fs.writeFile('data/am-commercial-trial-balance.xlsx', xlsx);
+    console.log(`PASS: real PDF ${pdf.length} bytes, pages=${pageCount}, parsedPages=${parsedPdf.total}, saved=data/am-commercial-trial-balance.pdf`);
+    console.log(`PASS: real XLSX ${xlsx.length} bytes, sheets=Report, rows=${rows.length}, saved=data/am-commercial-trial-balance.xlsx`);
   } finally {
     if (server?.pid) server.kill('SIGTERM');
     await fs.rm(databasePath, { force: true });

@@ -398,15 +398,15 @@ export class ApiClient {
 
   // Normalized Accounting Reports Engine SDK
   static async getTrialBalance(): Promise<any> {
-    return this.request('/reports/trial-balance');
+    return this.request('/reports/financial/trial-balance');
   }
 
   static async getBalanceSheet(): Promise<any> {
-    return this.request('/reports/balance-sheet');
+    return this.request('/reports/financial/balance-sheet');
   }
 
   static async getIncomeStatement(): Promise<any> {
-    return this.request('/reports/income-statement');
+    return this.request('/reports/financial/income-statement');
   }
 
   static async getAgedReceivables(): Promise<any> {

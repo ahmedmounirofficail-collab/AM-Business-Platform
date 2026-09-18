@@ -18,6 +18,8 @@
     "test:product-reconciliation": "tsx scripts/verify_product_reconciliation.ts",
     "test:invoice-http": "tsx scripts/verify_invoice_http_lifecycle.ts",
     "test:real-exports": "tsx scripts/verify_real_exports.ts",
+    "test:commercial-e2e": "tsx scripts/verify_commercial_e2e.ts",
+    "seed:commercial": "tsx scripts/seed_commercial_test.ts",
     "test:p006": "tsx scripts/verify_p0_06_vertical_runtime.ts",
     "test:p007": "tsx scripts/verify_p0_07_onboarding_wizard.ts"
   },
@@ -34,9 +36,10 @@
     "pdfkit": "^0.20.2",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "read-excel-file": "^6.0.3",
     "recharts": "^3.10.1",
     "vite": "^6.2.3",
-    "xlsx": "^0.18.5"
+    "write-excel-file": "^4.1.1"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
