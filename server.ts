@@ -1413,6 +1413,9 @@ let supplierPayments = [...INITIAL_SUPPLIER_PAYMENTS];
 
 let leads = [...INITIAL_LEADS];
 let employees = [...INITIAL_EMPLOYEES];
+let payrollRuns: any[] = [];
+let commissionPlans: any[] = [];
+let commissionAccruals: any[] = [];
 let documentRelationships: DocumentRelationship[] = [...INITIAL_DOCUMENT_RELATIONSHIPS];
 
 let brands = [...INITIAL_BRANDS];
@@ -1815,6 +1818,9 @@ function initializePilotPersistence(): void {
       }
     });
     employees = initDurableCollection('employees', employees, pilotDb);
+    payrollRuns = initDurableCollection('payrollRuns', payrollRuns, pilotDb);
+    commissionPlans = initDurableCollection('commissionPlans', commissionPlans, pilotDb);
+    commissionAccruals = initDurableCollection('commissionAccruals', commissionAccruals, pilotDb);
     leads = initDurableCollection('leads', leads, pilotDb);
 
     // Master Data Catalog
@@ -2364,6 +2370,9 @@ async function startServer() {
   app.use(express.json());
   registerRequestMiddleware(app);
   registerSystemRoutes(app, { pilotDb });
+  registerAuthenticationMiddleware(app, { getUsers: () => users });
+  registerRouteAuthorizationMiddleware(app);
+  registerPeriodGuardMiddleware(app, () => fiscalPeriods as any);
 
   // ==================== PILOT READINESS INFRASTRUCTURE ROUTES ====================
   // 1. Pilot Database Status
@@ -2546,9 +2555,6 @@ async function startServer() {
 
   // ==================== API V1 ROUTES ====================
 
-  registerAuthenticationMiddleware(app, { getUsers: () => users });
-  registerRouteAuthorizationMiddleware(app);
-  registerPeriodGuardMiddleware(app, () => fiscalPeriods as any);
   registerBrandingRoutes(app, { brandingEngine: BrandingEngine.getInstance() });
   registerOnboardingRoutes(app, {
     pilotDb,
@@ -2594,9 +2600,16 @@ async function startServer() {
   });
 
   app.post('/api/v1/companies', (req: Request, res: Response) => {
+    const auth = (req as any).auth;
+    const requestedTenantId = req.body.tenantId;
+    if (auth && auth.role !== 'Super Admin' && requestedTenantId && requestedTenantId !== auth.tenantId) {
+      return res.status(403).json({ error: 'Cross-tenant security violation: cannot create a company for another tenant.' });
+    }
     const newComp = {
       id: `comp-${Date.now()}`,
-      tenantId: req.body.tenantId || 'ten-001',
+      tenantId: auth?.role === 'Super Admin'
+        ? (requestedTenantId || auth.tenantId || 'ten-001')
+        : (auth?.tenantId || 'ten-001'),
       name: req.body.name || 'New Enterprise Company',
       nameAr: req.body.nameAr || req.body.name || 'شركة جديدة',
       code: req.body.code || `COMP${companies.length + 1}`,
@@ -2620,7 +2633,16 @@ async function startServer() {
       website: req.body.website || ''
     };
     companies.push(newComp);
-    recordAudit('ten-001', 'usr-001', 'Ahmed Mounir', 'Super Admin', 'CREATE', 'Company', newComp.id, `Created Company ${newComp.name} (${newComp.countryCode})`);
+    recordAudit(
+      newComp.tenantId,
+      auth?.sub || 'usr-001',
+      auth?.name || 'Ahmed Mounir',
+      auth?.role || 'Super Admin',
+      'CREATE',
+      'Company',
+      newComp.id,
+      `Created Company ${newComp.name} (${newComp.countryCode})`
+    );
     res.status(201).json(newComp);
   });
 
@@ -2737,6 +2759,9 @@ async function startServer() {
     }
 
     const { name, email, role, password, pin, tenantId, companyId } = req.body;
+    if (auth && auth.role !== 'Super Admin' && ((tenantId && tenantId !== auth.tenantId) || (companyId && companyId !== auth.companyId))) {
+      return res.status(403).json({ error: 'Tenant Admin cannot create users outside the authenticated tenant and company scope.' });
+    }
     if (!name || !email || !role || !password) {
       return res.status(400).json({ error: 'Name, email, role, and password are required.' });
     }
@@ -2757,8 +2782,8 @@ async function startServer() {
 
     const newUser: User = {
       id: `usr-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      tenantId: tenantId || auth?.tenantId || 'ten-001',
-      companyId: companyId || auth?.companyId || 'comp-001',
+      tenantId: auth?.role === 'Super Admin' ? (tenantId || auth?.tenantId || 'ten-001') : (auth?.tenantId || 'ten-001'),
+      companyId: auth?.role === 'Super Admin' ? (companyId || auth?.companyId || 'comp-001') : (auth?.companyId || 'comp-001'),
       name,
       email,
       role,
@@ -3692,6 +3717,9 @@ async function startServer() {
   app.post('/api/v1/accounting/journals', (req: Request, res: Response) => {
     const auth = (req as any).auth;
     if (auth) {
+      if (!['Super Admin', 'Tenant Admin', 'Finance Manager', 'Chief Accountant'].includes(auth.role)) {
+        return res.status(403).json({ error: `Forbidden: Role '${auth.role}' is not authorized to post manual journal entries.` });
+      }
       if (auth.role === 'Cashier' || auth.role === 'Warehouse Worker') {
         return res.status(403).json({ error: `Forbidden: Role '${auth.role}' is not authorized to post journal entries.` });
       }
@@ -6758,15 +6786,250 @@ async function startServer() {
 
   // HR & Employees
   app.get('/api/v1/hr/employees', (req: Request, res: Response) => {
-    res.json(employees);
+    const scope = getAuthenticatedScope(req);
+    res.json(employees.filter(employee => employee.tenantId === scope.tenantId && (!employee.companyId || employee.companyId === scope.companyId)));
+  });
+
+  app.post('/api/v1/hr/employees', (req: Request, res: Response) => {
+    const scope = getAuthenticatedScope(req);
+    const { employeeCode, name, nameAr, department, jobTitle, basicSalary, housingAllowance = 0, transportAllowance = 0, joiningDate } = req.body;
+    if (!employeeCode || !name || !department || !jobTitle || !Number.isFinite(Number(basicSalary)) || Number(basicSalary) < 0) {
+      return res.status(400).json({ error: 'Employee code, name, department, job title, and non-negative basic salary are required.' });
+    }
+    if (employees.some(employee => employee.tenantId === scope.tenantId && employee.employeeCode === employeeCode)) {
+      return res.status(409).json({ error: 'Employee code already exists.' });
+    }
+    const employee = {
+      id: `emp-${Date.now()}`,
+      tenantId: scope.tenantId,
+      companyId: scope.companyId,
+      employeeCode,
+      name,
+      nameAr: nameAr || name,
+      department,
+      jobTitle,
+      basicSalary: Number(basicSalary),
+      housingAllowance: Number(housingAllowance) || 0,
+      transportAllowance: Number(transportAllowance) || 0,
+      joiningDate: joiningDate || new Date().toISOString().slice(0, 10),
+      status: 'Active' as const
+    };
+    employees.push(employee);
+    persistEntity('employees', employee, pilotDb);
+    recordAudit(scope.tenantId, scope.userId, scope.name || scope.userId, scope.role, 'CREATE', 'Employee', employee.id, `Created employee ${employee.employeeCode}`);
+    res.status(201).json(employee);
+  });
+
+  app.patch('/api/v1/hr/employees/:id', (req: Request, res: Response) => {
+    const scope = getAuthenticatedScope(req);
+    const employee = employees.find(item => item.id === req.params.id && item.tenantId === scope.tenantId && item.companyId === scope.companyId);
+    if (!employee) return res.status(404).json({ error: 'Employee not found.' });
+    const allowed = ['name', 'nameAr', 'department', 'jobTitle', 'basicSalary', 'housingAllowance', 'transportAllowance', 'status', 'joiningDate'];
+    for (const key of allowed) {
+      if (key in req.body) (employee as any)[key] = req.body[key];
+    }
+    if (Number(employee.basicSalary) < 0 || Number(employee.housingAllowance) < 0 || Number(employee.transportAllowance) < 0) {
+      return res.status(400).json({ error: 'Salary components cannot be negative.' });
+    }
+    persistEntity('employees', employee, pilotDb);
+    recordAudit(scope.tenantId, scope.userId, scope.name || scope.userId, scope.role, 'UPDATE', 'Employee', employee.id, `Updated employee ${employee.employeeCode}`);
+    res.json(employee);
+  });
+
+  app.get('/api/v1/hr/payroll/runs', (req: Request, res: Response) => {
+    const scope = getAuthenticatedScope(req);
+    res.json(payrollRuns.filter(run => run.tenantId === scope.tenantId && run.companyId === scope.companyId));
   });
 
   app.get('/api/v1/hr/payroll/status', (req: Request, res: Response) => {
-    res.status(501).json({
-      status: 'CONFIGURATION_REQUIRED',
-      message: 'Payroll calculation, approval, posting, and WPS output are not configured for this deployment.',
-      required: ['payroll inputs', 'payroll period', 'approval workflow', 'posting profile', 'WPS provider']
+    const scope = getAuthenticatedScope(req);
+    const runs = payrollRuns.filter(run => run.tenantId === scope.tenantId && run.companyId === scope.companyId);
+    res.json({ status: 'READY', workflow: ['DRAFT', 'APPROVED', 'POSTED', 'PAID'], runs });
+  });
+
+  app.post('/api/v1/hr/payroll/runs', (req: Request, res: Response) => {
+    const scope = getAuthenticatedScope(req);
+    const { periodStart, periodEnd, employeeIds, deductions = {} } = req.body;
+    if (!periodStart || !periodEnd || !Array.isArray(employeeIds) || employeeIds.length === 0) {
+      return res.status(400).json({ error: 'Payroll period and at least one employee are required.' });
+    }
+    const selected = employees.filter(employee => employee.tenantId === scope.tenantId && employee.companyId === scope.companyId && employee.status === 'Active' && employeeIds.includes(employee.id));
+    if (selected.length !== employeeIds.length) return res.status(400).json({ error: 'One or more employees are outside the authorized scope or inactive.' });
+    const lines = selected.map(employee => {
+      const gross = employee.basicSalary + employee.housingAllowance + employee.transportAllowance;
+      const deduction = Math.max(0, Number(deductions[employee.id] || 0));
+      return { employeeId: employee.id, employeeCode: employee.employeeCode, gross, deductions: deduction, net: gross - deduction };
     });
+    const run = {
+      id: `payroll-${Date.now()}`,
+      tenantId: scope.tenantId,
+      companyId: scope.companyId,
+      periodStart,
+      periodEnd,
+      lines,
+      grossTotal: lines.reduce((sum, line) => sum + line.gross, 0),
+      deductionsTotal: lines.reduce((sum, line) => sum + line.deductions, 0),
+      netTotal: lines.reduce((sum, line) => sum + line.net, 0),
+      status: 'DRAFT',
+      createdBy: scope.userId,
+      createdAt: new Date().toISOString()
+    };
+    payrollRuns.unshift(run);
+    persistEntity('payrollRuns', run, pilotDb);
+    recordAudit(scope.tenantId, scope.userId, scope.name || scope.userId, scope.role, 'CREATE', 'PayrollRun', run.id, `Created payroll run ${run.periodStart} to ${run.periodEnd}`);
+    res.status(201).json(run);
+  });
+
+  app.post('/api/v1/hr/payroll/runs/:id/approve', (req: Request, res: Response) => {
+    const actor = getAuthenticatedScope(req);
+    if (!['HR Manager', 'Finance Manager', 'Tenant Admin', 'Super Admin'].includes(actor.role)) {
+      return res.status(403).json({ error: 'Only an HR Manager or Finance Manager can approve payroll.' });
+    }
+    const run = payrollRuns.find(item => item.id === req.params.id);
+    if (!run) return res.status(404).json({ error: 'Payroll run not found.' });
+    if (run.createdBy === actor.userId) return res.status(409).json({ error: 'Separation of duties: creator cannot approve the same payroll run.' });
+    if (run.status !== 'DRAFT') return res.status(409).json({ error: 'Only DRAFT payroll runs can be approved.' });
+    run.status = 'APPROVED';
+    run.approvedBy = actor.userId;
+    run.approvedAt = new Date().toISOString();
+    persistEntity('payrollRuns', run, pilotDb);
+    recordAudit(run.tenantId, actor.userId, actor.name || actor.userId, actor.role, 'APPROVE', 'PayrollRun', run.id, 'Approved payroll run');
+    res.json(run);
+  });
+
+  app.post('/api/v1/hr/payroll/runs/:id/post', (req: Request, res: Response) => {
+    const actor = getAuthenticatedScope(req);
+    if (!['Finance Manager', 'Tenant Admin', 'Super Admin'].includes(actor.role)) {
+      return res.status(403).json({ error: 'Only Finance Manager can post payroll to the general ledger.' });
+    }
+    const run = payrollRuns.find(item => item.id === req.params.id);
+    if (!run) return res.status(404).json({ error: 'Payroll run not found.' });
+    if (run.status !== 'APPROVED') return res.status(409).json({ error: 'Only APPROVED payroll runs can be posted.' });
+    const expense = glAccounts.find(account => account.code === '5020') || glAccounts.find(account => account.accountType === 'OperatingExpense');
+    let payable = glAccounts.find(account => account.code === '2210');
+    if (!payable) {
+      payable = {
+        id: `acc-2210-${run.companyId}`,
+        tenantId: run.tenantId,
+        companyId: run.companyId,
+        code: '2210',
+        name: 'Payroll Payable',
+        nameAr: 'مستحقات الرواتب',
+        group: 'Liabilities',
+        accountType: 'Payable',
+        parentId: null,
+        level: 1,
+        isControlAccount: true,
+        controlType: 'AP',
+        postingRestriction: 'POSTING_ALLOWED',
+        currency: 'SAR',
+        balance: 0,
+        isActive: true
+      };
+      glAccounts.push(payable);
+      persistEntity('glAccounts', payable, pilotDb);
+    }
+    if (!expense || !payable) return res.status(400).json({ error: 'Payroll expense and payroll payable accounts are not configured.' });
+    const period = glFiscalPeriods.find(item => item.status === 'OPEN' && item.year === new Date(run.periodEnd).getUTCFullYear()) || glFiscalPeriods.find(item => item.status === 'OPEN');
+    if (!period) return res.status(400).json({ error: 'No open fiscal period is available for payroll posting.' });
+    try {
+      const entryNumber = GeneralLedgerEngine.generateSequentialJournalNumber({ existingJournals: glJournals, companyId: run.companyId, fiscalYear: period.year, fiscalPeriod: period.periodNumber });
+      const created = GeneralLedgerEngine.createJournalEntry({
+        tenantId: run.tenantId, companyId: run.companyId, entryNumber, date: run.periodEnd, postingDate: run.periodEnd,
+        fiscalYear: period.year, fiscalPeriod: period.periodNumber, journalType: 'AUTOMATIC',
+        reference: run.id, description: `Payroll ${run.periodStart} to ${run.periodEnd}`,
+        lines: [
+          { id: `${run.id}-debit`, lineNo: 1, accountCode: expense.code, accountName: expense.name, description: 'Payroll expense', debit: run.grossTotal, credit: 0 },
+          { id: `${run.id}-credit`, lineNo: 2, accountCode: payable.code, accountName: payable.name, description: 'Payroll payable', debit: 0, credit: run.grossTotal }
+        ],
+        createdBy: actor.userId, createdByName: actor.name || actor.userId, accounts: glAccounts, periods: glFiscalPeriods
+      });
+      const posted = GeneralLedgerEngine.postJournalEntry(created.journalEntry, glAccounts, actor.userId);
+      glJournals.unshift(posted.updatedJournal);
+      persistEntity('glJournals', posted.updatedJournal, pilotDb);
+      for (const account of glAccounts) persistEntity('glAccounts', account, pilotDb);
+      if (created.auditRecord) {
+        glAuditTrail.unshift(created.auditRecord);
+        persistEntity('glAuditTrail', created.auditRecord, pilotDb);
+      }
+      run.status = 'POSTED';
+      run.journalId = posted.updatedJournal.id;
+      run.postedBy = actor.userId;
+      run.postedAt = new Date().toISOString();
+      persistEntity('payrollRuns', run, pilotDb);
+      recordAudit(run.tenantId, actor.userId, actor.name || actor.userId, actor.role, 'POST', 'PayrollRun', run.id, `Posted payroll run to ${posted.updatedJournal.entryNumber}`);
+      res.json(run);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/v1/hr/payroll/runs/:id/pay', (req: Request, res: Response) => {
+    const actor = getAuthenticatedScope(req);
+    if (!['Finance Manager', 'Tenant Admin', 'Super Admin'].includes(actor.role)) {
+      return res.status(403).json({ error: 'Only Finance Manager can pay posted payroll.' });
+    }
+    const run = payrollRuns.find(item => item.id === req.params.id);
+    if (!run) return res.status(404).json({ error: 'Payroll run not found.' });
+    if (run.status !== 'POSTED') return res.status(409).json({ error: 'Only POSTED payroll runs can be paid.' });
+    run.status = 'PAID';
+    run.paidBy = actor.userId;
+    run.paidAt = new Date().toISOString();
+    persistEntity('payrollRuns', run, pilotDb);
+    recordAudit(run.tenantId, actor.userId, actor.name || actor.userId, actor.role, 'UPDATE', 'PayrollRun', run.id, 'Marked payroll run paid after approved posting');
+    res.json(run);
+  });
+
+  app.get('/api/v1/commissions/plans', (req: Request, res: Response) => {
+    const scope = getAuthenticatedScope(req);
+    res.json(commissionPlans.filter(plan => plan.tenantId === scope.tenantId && plan.companyId === scope.companyId));
+  });
+
+  app.post('/api/v1/commissions/plans', (req: Request, res: Response) => {
+    const scope = getAuthenticatedScope(req);
+    const { name, ratePercent, basis = 'NET_SALES' } = req.body;
+    if (!name || !Number.isFinite(Number(ratePercent)) || Number(ratePercent) < 0 || Number(ratePercent) > 100) {
+      return res.status(400).json({ error: 'Commission name and rate between 0 and 100 are required.' });
+    }
+    const plan = { id: `commission-plan-${Date.now()}`, tenantId: scope.tenantId, companyId: scope.companyId, name, ratePercent: Number(ratePercent), basis, active: true, createdBy: scope.userId, createdAt: new Date().toISOString() };
+    commissionPlans.unshift(plan);
+    persistEntity('commissionPlans', plan, pilotDb);
+    recordAudit(scope.tenantId, scope.userId, scope.name || scope.userId, scope.role, 'CREATE', 'CommissionPlan', plan.id, `Created commission plan ${name}`);
+    res.status(201).json(plan);
+  });
+
+  app.post('/api/v1/commissions/accruals', (req: Request, res: Response) => {
+    const scope = getAuthenticatedScope(req);
+    const { planId, employeeId, sourceDocumentId, baseAmount } = req.body;
+    const plan = commissionPlans.find(item => item.id === planId && item.tenantId === scope.tenantId && item.companyId === scope.companyId && item.active);
+    const employee = employees.find(item => item.id === employeeId && item.tenantId === scope.tenantId && item.companyId === scope.companyId);
+    if (!plan || !employee || !sourceDocumentId || !Number.isFinite(Number(baseAmount)) || Number(baseAmount) < 0) {
+      return res.status(400).json({ error: 'Active commission plan, scoped employee, source document, and non-negative base amount are required.' });
+    }
+    const accrual = { id: `commission-${Date.now()}`, tenantId: scope.tenantId, companyId: scope.companyId, planId, employeeId, sourceDocumentId, baseAmount: Number(baseAmount), commissionAmount: Number((Number(baseAmount) * plan.ratePercent / 100).toFixed(2)), status: 'PENDING', createdBy: scope.userId, createdAt: new Date().toISOString() };
+    commissionAccruals.unshift(accrual);
+    persistEntity('commissionAccruals', accrual, pilotDb);
+    recordAudit(scope.tenantId, scope.userId, scope.name || scope.userId, scope.role, 'CREATE', 'CommissionAccrual', accrual.id, `Calculated commission from ${sourceDocumentId}`);
+    res.status(201).json(accrual);
+  });
+
+  app.get('/api/v1/commissions/accruals', (req: Request, res: Response) => {
+    const scope = getAuthenticatedScope(req);
+    res.json(commissionAccruals.filter(item => item.tenantId === scope.tenantId && item.companyId === scope.companyId));
+  });
+
+  app.post('/api/v1/commissions/accruals/:id/approve', (req: Request, res: Response) => {
+    const actor = getAuthenticatedScope(req);
+    const accrual = commissionAccruals.find(item => item.id === req.params.id && item.tenantId === actor.tenantId && item.companyId === actor.companyId);
+    if (!accrual) return res.status(404).json({ error: 'Commission accrual not found.' });
+    if (accrual.createdBy === actor.userId) return res.status(409).json({ error: 'Separation of duties: creator cannot approve the same commission.' });
+    if (accrual.status !== 'PENDING') return res.status(409).json({ error: 'Only pending commissions can be approved.' });
+    accrual.status = 'APPROVED';
+    accrual.approvedBy = actor.userId;
+    accrual.approvedAt = new Date().toISOString();
+    persistEntity('commissionAccruals', accrual, pilotDb);
+    recordAudit(actor.tenantId, actor.userId, actor.name || actor.userId, actor.role, 'APPROVE', 'CommissionAccrual', accrual.id, 'Approved commission accrual');
+    res.json(accrual);
   });
 
   // ==================== AI COPILOT & EXECUTIVE SUITE ====================
@@ -7894,7 +8157,8 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
 
   app.put('/api/v1/gl/fiscal-periods/:id/status', (req: Request, res: Response) => {
     const { id } = req.params;
-    const { status, lockedBy, reason } = req.body;
+    const { status, reason } = req.body;
+    const actor = getAuthenticatedScope(req);
     const fp = glFiscalPeriods.find(p => p.id === id || p.periodNumber === Number(id));
     if (!fp) return res.status(404).json({ error: 'Fiscal Period not found' });
 
@@ -7902,13 +8166,15 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
       try {
         const { updatedPeriod, auditRecord } = GeneralLedgerEngine.reopenFiscalPeriod({
           period: fp,
-          reopenedBy: lockedBy || 'Chief Financial Officer',
+          reopenedBy: actor.userId,
           reason: reason || 'Audit adjustment required'
         });
 
         const idx = glFiscalPeriods.findIndex(p => p.id === fp.id);
         if (idx !== -1) glFiscalPeriods[idx] = updatedPeriod;
         glAuditTrail.unshift(auditRecord);
+        persistEntity('glFiscalPeriods', updatedPeriod, pilotDb);
+        persistEntity('glAuditTrail', auditRecord, pilotDb);
         return res.json(updatedPeriod);
       } catch (err: any) {
         return res.status(400).json({ error: err.message });
@@ -7916,16 +8182,16 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
     }
 
     fp.status = status;
-    fp.lockedBy = lockedBy || 'Financial Controller';
+    fp.lockedBy = actor.userId;
     fp.lockedAt = new Date().toISOString();
 
     glAuditTrail.unshift({
       id: `glaud-${Date.now()}`,
-      tenantId: 'ten-001',
-      companyId: 'comp-001',
+      tenantId: actor.tenantId,
+      companyId: actor.companyId,
       timestamp: new Date().toISOString(),
-      userId: 'usr-001',
-      userName: 'Financial Controller',
+      userId: actor.userId,
+      userName: actor.name || actor.userId,
       action: status === 'CLOSED' ? 'PERIOD_CLOSED' : 'PERIOD_REOPENED',
       entityType: 'FiscalPeriod',
       entityId: fp.id,
@@ -7933,26 +8199,30 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
       hash: GeneralLedgerEngine.computeSHA256Hash(fp),
       details: `Updated Fiscal Period ${fp.periodName} (${fp.year}) status to ${fp.status}`
     });
+    persistEntity('glFiscalPeriods', fp, pilotDb);
 
     res.json(fp);
   });
 
   app.post('/api/v1/gl/fiscal-periods/:id/reopen', (req: Request, res: Response) => {
     const { id } = req.params;
-    const { reopenedBy, reason } = req.body;
+    const { reason } = req.body;
+    const actor = getAuthenticatedScope(req);
     const fp = glFiscalPeriods.find(p => p.id === id || p.periodNumber === Number(id));
     if (!fp) return res.status(404).json({ error: 'Fiscal Period not found' });
 
     try {
       const { updatedPeriod, auditRecord } = GeneralLedgerEngine.reopenFiscalPeriod({
         period: fp,
-        reopenedBy: reopenedBy || 'Chief Financial Officer',
+        reopenedBy: actor.userId,
         reason: reason || 'Audit adjustment required'
       });
 
       const idx = glFiscalPeriods.findIndex(p => p.id === fp.id);
       if (idx !== -1) glFiscalPeriods[idx] = updatedPeriod;
       glAuditTrail.unshift(auditRecord);
+      persistEntity('glFiscalPeriods', updatedPeriod, pilotDb);
+      persistEntity('glAuditTrail', auditRecord, pilotDb);
 
       res.json(updatedPeriod);
     } catch (err: any) {

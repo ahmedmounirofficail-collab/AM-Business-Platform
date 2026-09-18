@@ -888,6 +888,31 @@ export class ApiClient {
     return this.request('/hr/employees');
   }
 
+  static async getPayrollStatus(): Promise<{ status: string; workflow: string[]; runs: any[] }> {
+    return this.request('/hr/payroll/status');
+  }
+
+  static async createPayrollRun(payload: {
+    periodStart: string;
+    periodEnd: string;
+    employeeIds: string[];
+    deductions?: Record<string, number>;
+  }): Promise<any> {
+    return this.request('/hr/payroll/runs', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  static async approvePayrollRun(id: string): Promise<any> {
+    return this.request(`/hr/payroll/runs/${id}/approve`, { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  static async postPayrollRun(id: string): Promise<any> {
+    return this.request(`/hr/payroll/runs/${id}/post`, { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  static async payPayrollRun(id: string): Promise<any> {
+    return this.request(`/hr/payroll/runs/${id}/pay`, { method: 'POST', body: JSON.stringify({}) });
+  }
+
   // AI Copilot
   static async askAiAssistant(prompt: string, lang: 'ar' | 'en'): Promise<{ reply: string; insights?: string[] }> {
     return this.request('/ai/assistant', {

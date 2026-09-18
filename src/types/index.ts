@@ -33,7 +33,14 @@ export type UserRole =
   | 'Approver'
   | 'Procurement Manager'
   | 'Auditor'
-  | 'HR Specialist';
+  | 'HR Specialist'
+  | 'HR Manager'
+  | 'Treasury Manager'
+  | 'Cashier'
+  | 'POS Supervisor'
+  | 'Store Manager'
+  | 'Warehouse Worker'
+  | 'Assembly Operator';
 
 export interface UserPermission {
   module: string;
@@ -2210,5 +2217,4 @@ export interface ProjectTimesheet {
 }
 
 export * from './procurement';
-
 

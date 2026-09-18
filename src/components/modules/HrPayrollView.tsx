@@ -15,12 +15,15 @@ export const HrPayrollView: React.FC = () => {
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [payrollError, setPayrollError] = useState<string | null>(null);
+  const [payrollStatus, setPayrollStatus] = useState<string>('READY');
 
   useEffect(() => {
     async function loadHrData() {
       try {
         const res = await ApiClient.getEmployees();
         setEmployees(res);
+        const status = await ApiClient.getPayrollStatus();
+        setPayrollStatus(status.status);
       } catch (err) {
         console.error('Failed loading HR data:', err);
       }
@@ -29,11 +32,20 @@ export const HrPayrollView: React.FC = () => {
   }, [reloadTrigger]);
 
   const handleRunWpsPayroll = async () => {
-    setPayrollError(
-      isAr
-        ? 'تشغيل الرواتب غير متاح حتى يتم تفعيل مسار الاعتماد والترحيل الفعلي.'
-        : 'Payroll execution is unavailable until the approval, posting, and WPS workflow is enabled.'
-    );
+    setPayrollError(null);
+    if (employees.length === 0) {
+      setPayrollError(isAr ? 'لا يوجد موظفون نشطون لتشغيل الرواتب.' : 'No active employees are available for payroll.');
+      return;
+    }
+    try {
+      const today = new Date();
+      const periodEnd = today.toISOString().slice(0, 10);
+      const periodStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)).toISOString().slice(0, 10);
+      await ApiClient.createPayrollRun({ periodStart, periodEnd, employeeIds: employees.filter(e => e.status === 'Active').map(e => e.id) });
+      setPayrollStatus(isAr ? 'مسودة' : 'DRAFT');
+    } catch (error) {
+      setPayrollError(error instanceof Error ? error.message : (isAr ? 'تعذر إنشاء مسودة الرواتب.' : 'Unable to create payroll draft.'));
+    }
   };
 
   const totalPayrollCost = employees.reduce((acc, e) => acc + e.basicSalary + e.housingAllowance + e.transportAllowance, 0);
@@ -87,7 +99,7 @@ export const HrPayrollView: React.FC = () => {
         <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
           <div className="text-xs font-semibold text-slate-500">{isAr ? 'نظام حماية الأجور' : 'WPS Compliance'}</div>
           <div className="text-xl font-mono font-bold text-emerald-600 mt-1">
-            {isAr ? 'غير مهيأ' : 'Not configured'}
+            {payrollStatus}
           </div>
         </div>
       </div>

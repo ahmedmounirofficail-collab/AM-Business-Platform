@@ -26,6 +26,17 @@ const users = [
     role: 'Finance Manager',
     permissions: [],
     active: true
+  },
+  {
+    id: 'admin-a',
+    tenantId: 'tenant-a',
+    companyId: 'company-a',
+    branchId: 'branch-a',
+    name: 'Tenant A Administrator',
+    email: 'admin@example.test',
+    role: 'Tenant Admin',
+    permissions: [],
+    active: true
   }
 ] as any;
 
@@ -61,6 +72,7 @@ async function main(): Promise<void> {
   app.post('/api/v1/reports/export', (req, res) => res.json({ success: true }));
   app.post('/api/v1/inventory/count-sessions', (req, res) => res.json({ success: true }));
   app.post('/api/v1/gl/manual-journal', (req, res) => res.json({ success: true }));
+  app.post('/api/v1/companies', (req, res) => res.status(201).json({ tenantId: req.body.tenantId }));
 
   const server = await new Promise<ReturnType<typeof app.listen>>(resolve => {
     const instance = app.listen(0, () => resolve(instance));
@@ -69,6 +81,7 @@ async function main(): Promise<void> {
   if (!address || typeof address === 'string') throw new Error('Failed to start test server');
   const baseUrl = `http://127.0.0.1:${address.port}`;
   const tokenA = tokenFor(users[0]);
+  const adminToken = tokenFor(users[2]);
 
   try {
     const unauthMe = await fetch(`${baseUrl}/api/v1/auth/me`);
@@ -106,6 +119,20 @@ async function main(): Promise<void> {
       body: JSON.stringify({ fiscalYear: 2026, fiscalPeriod: 2 })
     });
     assert(openPeriod.status === 200, 'posting into an open period reaches the route');
+
+    const crossTenantCompany = await fetch(`${baseUrl}/api/v1/companies`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${adminToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ tenantId: 'tenant-b', name: 'Forbidden Company' })
+    });
+    assert(crossTenantCompany.status === 403, 'tenant admin cannot create a company for another tenant');
+
+    const scopedCompany = await fetch(`${baseUrl}/api/v1/companies`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${adminToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ tenantId: 'tenant-a', name: 'Scoped Company' })
+    });
+    assert(scopedCompany.status === 201, 'tenant admin can create a company in the authenticated tenant');
   } finally {
     await new Promise<void>(resolve => server.close(() => resolve()));
   }

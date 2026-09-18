@@ -25,6 +25,7 @@
     "test:production-first-run-closure": "tsx scripts/verify_production_first_run_closure.ts",
     "test:fiscal-year-closing": "tsx scripts/verify_fiscal_year_closing.ts",
     "test:final-accounting-certification": "tsx scripts/verify_final_accounting_certification.ts",
+    "test:final-full-system-certification": "tsx scripts/verify_final_full_system_certification_runner.ts",
     "seed:commercial": "tsx scripts/seed_commercial_test.ts",
     "test:p006": "tsx scripts/verify_p0_06_vertical_runtime.ts",
     "test:p007": "tsx scripts/verify_p0_07_onboarding_wizard.ts"
