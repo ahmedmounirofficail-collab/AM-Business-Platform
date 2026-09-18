@@ -93,7 +93,7 @@ export const Sidebar: React.FC = () => {
 
   const navCategories: NavCategory[] = [
     { titleEn: 'Workspace', titleAr: 'المساحة', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Workspace').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default })) },
-    { titleEn: 'Sales', titleAr: 'المبيعات', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Sales').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default, badge: feature.module === 'pos' ? 'POS' : undefined, badgeColor: feature.module === 'pos' ? 'bg-[#F28C28] text-slate-950 font-bold' : undefined })) },
+    { titleEn: 'Sales', titleAr: 'المبيعات', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Sales').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default, badge: feature.module === 'pos' ? 'POS' : undefined, badgeColor: feature.module === 'pos' ? 'bg-[#C9A227] text-slate-950 font-bold' : undefined })) },
     { titleEn: 'Purchases', titleAr: 'المشتريات', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Purchases').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default })) },
     { titleEn: 'Inventory', titleAr: 'المخزون', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Inventory').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default })) },
     { titleEn: 'Finance', titleAr: 'المالية', items: visibleFeatures.filter(feature => feature.navigationGroup === 'Finance').map(feature => ({ id: feature.module as ModuleView, labelEn: feature.displayName.en, labelAr: feature.displayName.ar, icon: iconMap[feature.module] || iconMap.default })) },
@@ -130,20 +130,20 @@ export const Sidebar: React.FC = () => {
                         onClick={() => setActiveModule(item.id)}
                         style={isActive ? {
                           backgroundColor: branding?.primaryColor || '#0B1F3A',
-                          borderColor: `${branding?.accentColor || '#F28C28'}4D`
+                          borderColor: `${branding?.accentColor || '#C9A227'}4D`
                         } : {}}
                         className={`w-full min-h-[38px] flex items-center justify-between rounded-md px-3 py-2 text-xs font-medium transition cursor-pointer ${
                           isActive ? 'text-white font-bold border' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 truncate min-w-0">
-                          <Icon className="w-4 h-4 shrink-0" style={isActive ? { color: branding?.accentColor || '#F28C28' } : {}} />
+                          <Icon className="w-4 h-4 shrink-0" style={isActive ? { color: branding?.accentColor || '#C9A227' } : {}} />
                           <span className="truncate text-xs font-semibold">{isAr ? item.labelAr : item.labelEn}</span>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {item.badge ? (
-                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${item.badgeColor || 'text-white'}`} style={!item.badgeColor ? { backgroundColor: branding?.accentColor || '#F28C28' } : {}}>{item.badge}</span>
-                          ) : isActive ? <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" style={{ color: branding?.accentColor || '#F28C28' }} /> : null}
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${item.badgeColor || 'text-white'}`} style={!item.badgeColor ? { backgroundColor: branding?.accentColor || '#C9A227' } : {}}>{item.badge}</span>
+                          ) : isActive ? <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" style={{ color: branding?.accentColor || '#C9A227' }} /> : null}
                         </div>
                       </button>
                     );
@@ -159,10 +159,10 @@ export const Sidebar: React.FC = () => {
         <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 border border-slate-200 dark:border-slate-800 text-xs space-y-1.5">
           <div className="flex items-center justify-between text-slate-900 dark:text-white font-semibold">
             <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" style={{ color: branding?.accentColor || '#F28C28' }} />
+              <Sparkles className="w-3.5 h-3.5" style={{ color: branding?.accentColor || '#C9A227' }} />
               <span className="font-bold truncate max-w-[140px]">{isAr ? (branding?.appNameAr || branding?.appName || 'منصة إيه إم للأعمال') : (branding?.appName || 'AM Business OS')}</span>
             </span>
-            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md border" style={{ color: branding?.accentColor || '#F28C28', backgroundColor: `${branding?.accentColor || '#F28C28'}1A`, borderColor: `${branding?.accentColor || '#F28C28'}33` }}>v2.8.0</span>
+            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md border" style={{ color: branding?.accentColor || '#C9A227', backgroundColor: `${branding?.accentColor || '#C9A227'}1A`, borderColor: `${branding?.accentColor || '#C9A227'}33` }}>v2.8.0</span>
           </div>
           <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">{branding?.tradingName || (isAr ? 'إدارة متكاملة للأعمال والعمليات المالية' : 'Integrated business and financial operations')}</p>
         </div>

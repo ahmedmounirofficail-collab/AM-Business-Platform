@@ -319,7 +319,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
       <div className="bg-[#0B1F3A] text-white border border-[#153258] rounded-2xl p-6 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-[#0B1F3A] border-2 border-[#F28C28] text-[#F28C28] flex items-center justify-center font-black text-lg shadow-sm">
+            <div className="w-12 h-12 rounded-xl bg-[#0B1F3A] border-2 border-[#C9A227] text-[#C9A227] flex items-center justify-center font-black text-lg shadow-sm">
               AM
             </div>
             <div>
@@ -327,7 +327,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                 <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
                   {isAr ? 'معالج إعداد المنشأة' : 'Company Setup Wizard'}
                 </h1>
-                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#F28C28]/20 text-[#F28C28] border border-[#F28C28]/40">
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#C9A227]/20 text-[#C9A227] border border-[#C9A227]/40">
                   إعدادات منصة الأعمال
                 </span>
               </div>
@@ -345,14 +345,14 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
             <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-300">
               {isAr ? 'التقدم الإجمالي' : 'Total Progress'}
             </span>
-            <div className="text-lg font-black text-[#F28C28]">
+            <div className="text-lg font-black text-[#C9A227]">
               {progressPercent}% <span className="text-xs font-normal text-slate-400">({activeStep} / 19)</span>
             </div>
           </div>
 
           <div className="w-24 bg-white/10 rounded-full h-2.5 overflow-hidden border border-white/20">
             <div 
-              className="bg-[#F28C28] h-full transition-all duration-300 rounded-full shadow-xs"
+              className="bg-[#C9A227] h-full transition-all duration-300 rounded-full shadow-xs"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -599,24 +599,24 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                   {/* Master AM Platform Anchor Information */}
                   <div className="bg-[#0B1F3A] text-white p-4 rounded-xl border border-[#153258] flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-[#0B1F3A] border border-[#F28C28] flex items-center justify-center font-black text-[#F28C28]">
+                      <div className="w-10 h-10 rounded-lg bg-[#0B1F3A] border border-[#C9A227] flex items-center justify-center font-black text-[#C9A227]">
                         AM
                       </div>
                       <div>
                         <div className="text-xs font-bold text-white flex items-center gap-2">
                           <span>{isAr ? 'هوية منصة إيه إم للأعمال' : 'Business Platform Identity'}</span>
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#F28C28]/20 text-[#F28C28] border border-[#F28C28]/40">
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#C9A227]/20 text-[#C9A227] border border-[#C9A227]/40">
                             Fixed Master Identity
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-300">
                           {isAr 
-                            ? 'ألوان النواة: كحلي داكن (#0B1F3A) • برتقالي عنبري (#F28C28) • خطوط Plus Jakarta Sans و Cairo' 
+                            ? 'ألوان النواة: كحلي داكن (#0B1F3A) • ذهبي حقيقي (#C9A227) • خطوط Plus Jakarta Sans و Cairo'
                             : 'ألوان وهوية العرض المعتمدة للمنصة'}
                         </p>
                       </div>
                     </div>
-                    <div className="hidden sm:block text-right rtl:text-left text-[11px] text-[#F28C28] font-bold">
+                    <div className="hidden sm:block text-right rtl:text-left text-[11px] text-[#C9A227] font-bold">
                       {isAr ? '«كل قرار ناجح يبدأ برقم صحيح»' : '"Accurate Numbers First"'}
                     </div>
                   </div>
@@ -650,13 +650,13 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                         <input
                           type="color"
                           className="w-10 h-10 rounded border border-slate-300 cursor-pointer shrink-0"
-                          value={formData.accentColor || '#F28C28'}
+                          value={formData.accentColor || '#C9A227'}
                           onChange={(e) => handleInputChange('accentColor', e.target.value)}
                         />
                         <input
                           type="text"
                           className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono"
-                          value={formData.accentColor || '#F28C28'}
+                          value={formData.accentColor || '#C9A227'}
                           onChange={(e) => handleInputChange('accentColor', e.target.value)}
                         />
                       </div>
@@ -701,7 +701,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <div 
                           className="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs"
-                          style={{ backgroundColor: formData.accentColor || '#F28C28', color: '#0B1F3A' }}
+                          style={{ backgroundColor: formData.accentColor || '#C9A227', color: '#0B1F3A' }}
                         >
                           {formData.appName ? formData.appName.slice(0, 2).toUpperCase() : 'CO'}
                         </div>

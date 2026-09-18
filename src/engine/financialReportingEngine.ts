@@ -44,12 +44,70 @@ import {
   ReportSnapshotRecord,
   KPITraceabilityLineage
 } from '../types/reporting';
+import PDFDocument from 'pdfkit';
+import * as XLSX from 'xlsx';
 
 // In-memory append-only registry for immutable report snapshots
 const REPORT_SNAPSHOT_REGISTRY: ReportSnapshotRecord[] = [];
 
 
 export class FinancialReportingEngine {
+
+  public static async exportReportFile(
+    reportData: any,
+    format: ExportFormat = 'EXCEL',
+    customTitle: string = 'Financial Report',
+    user: string = 'exporter'
+  ): Promise<ExportResult> {
+    const base = this.exportReport(reportData, format, customTitle, user);
+    if (format === 'EXCEL') {
+      const rows = FinancialReportingEngine.flattenReport(reportData);
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{ Field: 'Report', Value: customTitle }]);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
+      const content = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+      return {
+        ...base,
+        fileName: base.fileName.replace(/\.xls$/, '.xlsx'),
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        content,
+        fileSizeBytes: Buffer.from(content, 'base64').byteLength
+      };
+    }
+    if (format === 'PDF' || format === 'PRINT_LAYOUT') {
+      const content = await new Promise<string>((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        const doc = new PDFDocument({ size: 'A4', margin: 42, info: { Title: customTitle, Author: 'AM Business OS' } });
+        doc.on('data', chunk => chunks.push(Buffer.from(chunk)));
+        doc.on('end', () => resolve(Buffer.concat(chunks).toString('base64')));
+        doc.on('error', reject);
+        doc.fontSize(18).fillColor('#0B1F3A').text(customTitle);
+        doc.moveDown(0.5).fontSize(9).fillColor('#475569').text(`Generated: ${base.generatedAt}`);
+        doc.moveDown().fontSize(10).fillColor('#0F172A');
+        for (const row of FinancialReportingEngine.flattenReport(reportData)) {
+          doc.text(`${row.Field}: ${row.Value}`);
+        }
+        doc.end();
+      });
+      return {
+        ...base,
+        fileName: base.fileName.replace(/\.html$/, '.pdf'),
+        mimeType: 'application/pdf',
+        content,
+        fileSizeBytes: Buffer.from(content, 'base64').byteLength
+      };
+    }
+    return base;
+  }
+
+  private static flattenReport(value: any, prefix = ''): Array<{ Field: string; Value: string }> {
+    if (value === null || value === undefined) return [{ Field: prefix || 'Value', Value: '' }];
+    if (Array.isArray(value)) return value.flatMap((item, index) => FinancialReportingEngine.flattenReport(item, `${prefix}[${index + 1}]`));
+    if (typeof value === 'object') {
+      return Object.entries(value).flatMap(([key, item]) => FinancialReportingEngine.flattenReport(item, prefix ? `${prefix}.${key}` : key));
+    }
+    return [{ Field: prefix || 'Value', Value: String(value) }];
+  }
 
   /**
    * Generates deterministic SHA-256 audit metadata header for all reports
@@ -122,24 +180,6 @@ export class FinancialReportingEngine {
         equityList.push({ accountCode: code, lineName: name, category: 'Equity', amount: balance });
       }
     });
-
-    // Ensure non-empty defaults if dataset is small
-    if (currentAssetsList.length === 0) {
-      currentAssetsList.push({ accountCode: '1010', lineName: 'Cash and Cash Equivalents', category: 'Current Asset', amount: 150000 });
-      currentAssetsList.push({ accountCode: '1020', lineName: 'Accounts Receivable', category: 'Current Asset', amount: 85000 });
-      currentAssetsList.push({ accountCode: '1030', lineName: 'Merchandise Inventory', category: 'Current Asset', amount: 120000 });
-    }
-    if (nonCurrentAssetsList.length === 0) {
-      nonCurrentAssetsList.push({ accountCode: '1510', lineName: 'Property, Plant & Equipment', category: 'Non-Current Asset', amount: 350000 });
-    }
-    if (currentLiabilitiesList.length === 0) {
-      currentLiabilitiesList.push({ accountCode: '2010', lineName: 'Accounts Payable', category: 'Current Liability', amount: 65000 });
-      currentLiabilitiesList.push({ accountCode: '2020', lineName: 'VAT Payable', category: 'Current Liability', amount: 18000 });
-    }
-    if (equityList.length === 0) {
-      equityList.push({ accountCode: '3010', lineName: 'Share Capital', category: 'Equity', amount: 500000 });
-      equityList.push({ accountCode: '3020', lineName: 'Retained Earnings', category: 'Equity', amount: 122000 });
-    }
 
     const totalCurrentAssets = currentAssetsList.reduce((sum, l) => sum + l.amount, 0);
     const totalNonCurrentAssets = nonCurrentAssetsList.reduce((sum, l) => sum + l.amount, 0);
@@ -223,15 +263,6 @@ export class FinancialReportingEngine {
         }
       }
     });
-
-    if (grossRevenue === 0) grossRevenue = 450000;
-    if (costOfGoodsSold === 0) costOfGoodsSold = 210000;
-    if (operatingExpensesList.length === 0) {
-      operatingExpensesList.push({ accountCode: '6010', lineName: 'Salaries & Wages', category: 'Operating Expense', amount: 85000 });
-      operatingExpensesList.push({ accountCode: '6020', lineName: 'Rent & Facilities', category: 'Operating Expense', amount: 30000 });
-      operatingExpensesList.push({ accountCode: '6030', lineName: 'Utilities & Communication', category: 'Operating Expense', amount: 12000 });
-      operatingExpensesList.push({ accountCode: '6040', lineName: 'Depreciation Expense', category: 'Operating Expense', amount: 15000 });
-    }
 
     const netRevenue = grossRevenue - salesDiscountsAndReturns;
     const grossProfit = netRevenue - costOfGoodsSold;
@@ -476,23 +507,23 @@ export class FinancialReportingEngine {
   public static calculateFinancialRatios(
     balanceSheet: BalanceSheetReport,
     incomeStatement: IncomeStatementReport,
-    inventoryValue: number = 120000,
-    arBalance: number = 85000,
-    apBalance: number = 65000,
+    inventoryValue: number = 0,
+    arBalance: number = 0,
+    apBalance: number = 0,
     user: string = 'financial_controller'
   ): FinancialRatiosReport {
-    const currentAssets = balanceSheet.totalCurrentAssets || 355000;
-    const currentLiabilities = balanceSheet.totalCurrentLiabilities || 83000;
-    const totalAssets = balanceSheet.totalAssets || 705000;
-    const totalLiabilities = balanceSheet.totalLiabilities || 83000;
-    const totalEquity = balanceSheet.totalEquity || 622000;
+    const currentAssets = balanceSheet.totalCurrentAssets;
+    const currentLiabilities = balanceSheet.totalCurrentLiabilities;
+    const totalAssets = balanceSheet.totalAssets;
+    const totalLiabilities = balanceSheet.totalLiabilities;
+    const totalEquity = balanceSheet.totalEquity;
 
-    const revenue = incomeStatement.netRevenue || 450000;
-    const cogs = incomeStatement.costOfGoodsSold || 210000;
-    const grossProfit = incomeStatement.grossProfit || 240000;
-    const netIncome = incomeStatement.netIncome || 82000;
-    const ebitda = incomeStatement.ebitda || 113000;
-    const operatingIncome = incomeStatement.operatingIncome || 98000;
+    const revenue = incomeStatement.netRevenue;
+    const cogs = incomeStatement.costOfGoodsSold;
+    const grossProfit = incomeStatement.grossProfit;
+    const netIncome = incomeStatement.netIncome;
+    const ebitda = incomeStatement.ebitda;
+    const operatingIncome = incomeStatement.operatingIncome;
 
     // Ratios
     const currentRatio = currentLiabilities > 0 ? Number((currentAssets / currentLiabilities).toFixed(2)) : 0;
@@ -566,80 +597,43 @@ export class FinancialReportingEngine {
     const grossProfitYTD = incomeStatement.grossProfit;
     const netProfitYTD = incomeStatement.netIncome;
 
-    const cashPositionTotal = balanceSheet.currentAssets.find(a => a.lineName.toLowerCase().includes('cash'))?.amount || 150000;
-    const arTotalOutstanding = balanceSheet.currentAssets.find(a => a.lineName.toLowerCase().includes('receivable'))?.amount || 85000;
-    const apTotalOutstanding = balanceSheet.currentLiabilities.find(l => l.lineName.toLowerCase().includes('payable'))?.amount || 65000;
-    const inventoryValueTotal = balanceSheet.currentAssets.find(a => a.lineName.toLowerCase().includes('inventory'))?.amount || 120000;
+    const cashPositionTotal = balanceSheet.currentAssets.find(a => a.lineName.toLowerCase().includes('cash'))?.amount || 0;
+    const arTotalOutstanding = balanceSheet.currentAssets.find(a => a.lineName.toLowerCase().includes('receivable'))?.amount || 0;
+    const apTotalOutstanding = balanceSheet.currentLiabilities.find(l => l.lineName.toLowerCase().includes('payable'))?.amount || 0;
+    const inventoryValueTotal = balanceSheet.currentAssets.find(a => a.lineName.toLowerCase().includes('inventory'))?.amount || 0;
     const workingCapitalTotal = balanceSheet.totalCurrentAssets - balanceSheet.totalCurrentLiabilities;
 
-    const monthlyTrends = [
-      { month: 'Jan 2026', revenue: 110000, expenses: 85000, netProfit: 25000, cashInflow: 120000, cashOutflow: 90000 },
-      { month: 'Feb 2026', revenue: 125000, expenses: 92000, netProfit: 33000, cashInflow: 130000, cashOutflow: 95000 },
-      { month: 'Mar 2026', revenue: 140000, expenses: 98000, netProfit: 42000, cashInflow: 145000, cashOutflow: 100000 },
-      { month: 'Apr 2026', revenue: 135000, expenses: 94000, netProfit: 41000, cashInflow: 138000, cashOutflow: 98000 },
-      { month: 'May 2026', revenue: 150000, expenses: 102000, netProfit: 48000, cashInflow: 155000, cashOutflow: 105000 },
-      { month: 'Jun 2026', revenue: 160000, expenses: 108000, netProfit: 52000, cashInflow: 165000, cashOutflow: 110000 }
-    ];
-
-    const topCustomers = (customers.length > 0 ? customers : [
-      { id: 'c1', code: 'CUST-001', name: 'Al Marai Company', balance: 45000 },
-      { id: 'c2', code: 'CUST-002', name: 'SABIC Industrial', balance: 32000 },
-      { id: 'c3', code: 'CUST-003', name: 'Panda Retail Group', balance: 28000 },
-      { id: 'c4', code: 'CUST-004', name: 'Olayan Group', balance: 21000 },
-      { id: 'c5', code: 'CUST-005', name: 'Bin Laden Contracting', balance: 18000 }
-    ]).slice(0, 5).map((c: any, i) => ({
+    const monthlyTrends: any[] = [];
+    const customerTotal = customers.reduce((sum, customer) => sum + Number(customer.balance || customer.totalAmount || 0), 0);
+    const topCustomers = customers.slice(0, 5).map((c: any) => ({
       id: c.id,
       code: c.code,
       name: c.name,
-      totalAmount: (c.balance || 30000) * (5 - i),
-      percentageContribution: Number(((100 / 15) * (5 - i)).toFixed(1))
+      totalAmount: Number(c.balance || c.totalAmount || 0),
+      percentageContribution: customerTotal > 0 ? Number(((Number(c.balance || c.totalAmount || 0) / customerTotal) * 100).toFixed(1)) : 0
     }));
 
-    const topVendors = (vendors.length > 0 ? vendors : [
-      { id: 'v1', code: 'VEN-001', name: 'Siemens Middle East', balance: 35000 },
-      { id: 'v2', code: 'VEN-002', name: 'Schneider Electric', balance: 25000 },
-      { id: 'v3', code: 'VEN-003', name: 'ABB Engineering', balance: 20000 },
-      { id: 'v4', code: 'VEN-004', name: 'Honeywell Solutions', balance: 15000 },
-      { id: 'v5', code: 'VEN-005', name: 'Oracle Systems', balance: 12000 }
-    ]).slice(0, 5).map((v: any, i) => ({
+    const vendorTotal = vendors.reduce((sum, vendor) => sum + Number(vendor.balance || vendor.totalAmount || 0), 0);
+    const topVendors = vendors.slice(0, 5).map((v: any) => ({
       id: v.id,
       code: v.code,
       name: v.name,
-      totalAmount: (v.balance || 20000) * (5 - i),
-      percentageContribution: Number(((100 / 15) * (5 - i)).toFixed(1))
+      totalAmount: Number(v.balance || v.totalAmount || 0),
+      percentageContribution: vendorTotal > 0 ? Number(((Number(v.balance || v.totalAmount || 0) / vendorTotal) * 100).toFixed(1)) : 0
     }));
 
-    const topProducts = (items.length > 0 ? items : [
-      { id: 'i1', sku: 'SKU-ELEC-001', name: 'Industrial Power Generator 50KW', sellingPrice: 25000 },
-      { id: 'i2', sku: 'SKU-ELEC-002', name: 'High-Voltage Transformer 100KVA', sellingPrice: 18000 },
-      { id: 'i3', sku: 'SKU-HARD-001', name: 'Heavy-Duty Steel Beams (Ton)', sellingPrice: 12000 },
-      { id: 'i4', sku: 'SKU-SOFT-001', name: 'ERP Software User License Annual', sellingPrice: 8500 },
-      { id: 'i5', sku: 'SKU-SERV-001', name: 'On-Site Maintenance Package', sellingPrice: 6000 }
-    ]).slice(0, 5).map((item: any, i) => ({
+    const productTotal = items.reduce((sum, item) => sum + Number(item.sellingPrice || item.totalAmount || 0), 0);
+    const topProducts = items.slice(0, 5).map((item: any) => ({
       id: item.id,
       code: item.sku,
       name: item.name,
-      totalAmount: (item.sellingPrice || 10000) * (10 - i),
-      percentageContribution: Number(((100 / 15) * (5 - i)).toFixed(1))
+      totalAmount: Number(item.sellingPrice || item.totalAmount || 0),
+      percentageContribution: productTotal > 0 ? Number(((Number(item.sellingPrice || item.totalAmount || 0) / productTotal) * 100).toFixed(1)) : 0
     }));
 
-    const topCategories = [
-      { id: 'cat1', code: 'CAT-ELEC', name: 'Electrical & Power', totalAmount: 180000, percentageContribution: 40 },
-      { id: 'cat2', code: 'CAT-HARD', name: 'Hardware & Metals', totalAmount: 125000, percentageContribution: 27.8 },
-      { id: 'cat3', code: 'CAT-SOFT', name: 'Software & Cloud', totalAmount: 85000, percentageContribution: 18.9 },
-      { id: 'cat4', code: 'CAT-SERV', name: 'Professional Services', totalAmount: 60000, percentageContribution: 13.3 }
-    ];
-
-    const branchPerformance = [
-      { branchId: 'br-001', branchName: 'Riyadh Headquarters', revenue: 280000, profit: 55000 },
-      { branchId: 'br-002', branchName: 'Jeddah Commercial Branch', revenue: 120000, profit: 21000 },
-      { branchId: 'br-003', branchName: 'Dammam Industrial Hub', revenue: 50000, profit: 6000 }
-    ];
-
-    const warehousePerformance = [
-      { warehouseId: 'wh-001', warehouseName: 'Riyadh Central Logistics', inventoryValue: 80000, turnover: 4.2 },
-      { warehouseId: 'wh-002', warehouseName: 'Jeddah Port Depot', inventoryValue: 40000, turnover: 3.5 }
-    ];
+    const topCategories: any[] = [];
+    const branchPerformance: any[] = [];
+    const warehousePerformance: any[] = [];
 
     const auditMetadata = this.computeAuditMetadata('EXECUTIVE_DASHBOARD', { revenueYTD, netProfitYTD, workingCapitalTotal }, user, {
       asOfDate: balanceSheet.asOfDate,
@@ -940,29 +934,15 @@ export class FinancialReportingEngine {
    */
   public static generateBIDataset(
     reportName: string = 'Revenue & Expense BI Analytics',
-    user: string = 'bi_analyst'
+    user: string = 'bi_analyst',
+    sourceDataset: any[] = []
   ): BusinessIntelligenceDataset {
-    const pivotData = [
-      { dimensions: { Country: 'Saudi Arabia', Branch: 'Riyadh', Category: 'Electrical' }, measures: { Sales: 180000, Margin: 45000 } },
-      { dimensions: { Country: 'Saudi Arabia', Branch: 'Riyadh', Category: 'Hardware' }, measures: { Sales: 100000, Margin: 28000 } },
-      { dimensions: { Country: 'Saudi Arabia', Branch: 'Jeddah', Category: 'Electrical' }, measures: { Sales: 80000, Margin: 20000 } },
-      { dimensions: { Country: 'Saudi Arabia', Branch: 'Jeddah', Category: 'Software' }, measures: { Sales: 40000, Margin: 15000 } }
-    ];
-
-    const heatmapData = [
-      { xLabel: 'Q1', yLabel: 'Electrical', value: 85 },
-      { xLabel: 'Q2', yLabel: 'Electrical', value: 95 },
-      { xLabel: 'Q1', yLabel: 'Hardware', value: 60 },
-      { xLabel: 'Q2', yLabel: 'Hardware', value: 65 }
-    ];
-
-    const waterfallData = [
-      { category: 'Gross Revenue', value: 450000, cumulativeValue: 450000 },
-      { category: 'Discounts & Returns', value: -10000, cumulativeValue: 440000 },
-      { category: 'Cost of Goods Sold', value: -210000, cumulativeValue: 230000 },
-      { category: 'Operating Expenses', value: -132000, cumulativeValue: 98000 },
-      { category: 'Taxes & Interest', value: -16000, cumulativeValue: 82000, isTotal: true }
-    ];
+    const pivotData = sourceDataset.map((row: any) => ({
+      dimensions: { Country: row.country || row.countryName, Branch: row.branch || row.branchName, Category: row.category || row.itemCategory },
+      measures: { Sales: Number(row.totalAmount || row.grandTotal || row.amount || 0), Margin: Number(row.margin || 0) }
+    }));
+    const heatmapData: any[] = [];
+    const waterfallData: any[] = [];
 
     const auditMetadata = this.computeAuditMetadata('BI_DATASET', { pivotCount: pivotData.length }, user, { reportName });
 
@@ -1244,4 +1224,3 @@ export class FinancialReportingEngine {
     };
   }
 }
-

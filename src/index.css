@@ -62,15 +62,15 @@
   border-color: var(--brand-navy);
 }
 
-.bg-brand-orange {
+.bg-brand-gold {
   background-color: var(--brand-gold);
 }
 
-.hover\:bg-brand-orange-hover:hover {
+.hover\:bg-brand-gold-muted:hover {
   background-color: var(--brand-gold-muted);
 }
 
-.text-brand-orange {
+.text-brand-gold {
   color: var(--brand-gold-muted);
 }
 
@@ -78,7 +78,7 @@
   color: var(--brand-gold);
 }
 
-.border-brand-orange {
+.border-brand-gold {
   border-color: var(--brand-gold);
 }
 
@@ -108,15 +108,15 @@
 }
 
 .badge-am-accent {
-  background-color: rgba(202, 175, 125, 0.14);
+  background-color: rgb(201 162 39 / 0.14);
   color: var(--brand-gold-muted);
-  border: 1px solid rgba(202, 175, 125, 0.35);
+  border: 1px solid rgb(201 162 39 / 0.35);
 }
 
 .dark .badge-am-accent {
-  background-color: rgba(202, 175, 125, 0.2);
+  background-color: rgb(201 162 39 / 0.2);
   color: var(--brand-gold);
-  border: 1px solid rgba(202, 175, 125, 0.4);
+  border: 1px solid rgb(201 162 39 / 0.4);
 }
 
 .card-am-surface {
@@ -182,7 +182,7 @@
 .am-focus-ring:focus-visible {
   outline: 2px solid var(--brand-gold);
   outline-offset: 2px;
-  box-shadow: 0 0 0 3px rgb(202 175 125 / 0.2);
+  box-shadow: 0 0 0 3px rgb(201 162 39 / 0.2);
 }
 
 /* Shared report presentation language. Keep report surfaces calm and scannable
@@ -211,7 +211,7 @@
 .report-shell a:focus-visible {
   outline: 2px solid var(--brand-gold);
   outline-offset: 2px;
-  box-shadow: 0 0 0 3px rgb(202 175 125 / 0.2);
+  box-shadow: 0 0 0 3px rgb(201 162 39 / 0.2);
 }
 
 .report-table {
@@ -568,11 +568,22 @@
 
 /* Print Styles */
 @media print {
-  aside, navbar, button {
+  aside, nav, header, button, [data-print-hidden="true"] {
     display: none !important;
+  }
+  @page {
+    size: A4;
+    margin: 14mm;
   }
   main {
     overflow: visible !important;
     padding: 0 !important;
+  }
+  table thead {
+    display: table-header-group;
+  }
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

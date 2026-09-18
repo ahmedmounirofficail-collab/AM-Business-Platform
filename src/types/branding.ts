@@ -23,7 +23,7 @@ export interface TenantBranding {
   // Theme & Design Tokens (Strict Hex #RRGGBB)
   primaryColor: string; // Primary brand color (e.g. '#0B1F3A')
   secondaryColor: string; // Secondary brand color (e.g. '#1E3A8A')
-  accentColor: string; // Accent/Highlight color (e.g. '#F28C28')
+  accentColor: string; // Accent/Highlight color (AM true gold)
   surfaceColor: string; // Background/Surface color (e.g. '#FFFFFF' or '#F8FAFC')
   textColor: string; // Foreground body text color (e.g. '#0F172A')
 
@@ -154,7 +154,7 @@ export interface AMPlatformIdentity {
   motto: 'Every successful decision begins with an accurate number';
   mottoAr: 'كل قرار ناجح يبدأ برقم صحيح';
   primaryColor: '#0B1F3A';
-  accentColor: '#C9A227' | '#F28C28';
+  accentColor: '#C9A227';
   neutralColor: '#F8FAFC';
   borderLightColor: '#E2E8F0';
   surfaceColor: '#FFFFFF';
@@ -185,4 +185,3 @@ export const APPROVED_AM_IDENTITY: AMPlatformIdentity = {
   arabicFontFamily: 'Cairo',
   visualDirection: 'premium, minimal, corporate, Egyptian-business oriented'
 };
-

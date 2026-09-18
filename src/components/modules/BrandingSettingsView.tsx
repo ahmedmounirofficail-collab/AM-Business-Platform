@@ -300,7 +300,7 @@ export const BrandingSettingsView: React.FC = () => {
       <div className="bg-[#0B1F3A] text-white rounded-2xl p-5 border border-[#153258] shadow-md space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-[#0B1F3A] border-2 border-[#F28C28] flex items-center justify-center font-black text-lg text-[#F28C28] shadow-md shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-[#0B1F3A] border-2 border-[#C9A227] flex items-center justify-center font-black text-lg text-[#C9A227] shadow-md shrink-0">
               AM
             </div>
             <div>
@@ -308,7 +308,7 @@ export const BrandingSettingsView: React.FC = () => {
                 <span className="font-extrabold text-base tracking-tight text-white">
                   AM ERP • Ahmed Mounir
                 </span>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#F28C28]/20 text-[#F28C28] border border-[#F28C28]/40">
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#C9A227]/20 text-[#C9A227] border border-[#C9A227]/40">
                   Fixed Master Identity
                 </span>
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
@@ -325,7 +325,7 @@ export const BrandingSettingsView: React.FC = () => {
             <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider">
               {isAr ? 'شعار المنصة المعتمد' : 'Official Brand Motto'}
             </span>
-            <span className="text-xs font-bold text-[#F28C28]">
+            <span className="text-xs font-bold text-[#C9A227]">
               {isAr ? '«كل قرار ناجح يبدأ برقم صحيح»' : '"Every successful decision begins with an accurate number"'}
             </span>
           </div>
@@ -351,10 +351,10 @@ export const BrandingSettingsView: React.FC = () => {
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 space-y-1">
             <div className="flex items-center gap-2">
-              <span className="w-4 h-4 rounded-md border border-white/20 shrink-0" style={{ backgroundColor: '#F28C28' }} />
+              <span className="w-4 h-4 rounded-md border border-white/20 shrink-0" style={{ backgroundColor: '#C9A227' }} />
               <span className="font-bold text-[11px] text-white">Accent Amber</span>
             </div>
-            <div className="text-[10px] font-mono text-slate-300">#F28C28</div>
+            <div className="text-[10px] font-mono text-slate-300">#C9A227</div>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 space-y-1">
@@ -380,7 +380,7 @@ export const BrandingSettingsView: React.FC = () => {
         </div>
 
         <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] text-slate-300 flex items-start gap-2">
-          <Shield className="w-4 h-4 text-[#F28C28] shrink-0 mt-0.5" />
+          <Shield className="w-4 h-4 text-[#C9A227] shrink-0 mt-0.5" />
           <span>
             {isAr
               ? 'حوكمة التعددية المؤسسية: هوية المنصة إيه إم غير قابلة للتحريف أو التبديل بواسطة المستأجرين. تخصيص المستأجر يقتصر على مساحات عمله وفواتيره وشاشات العميل مع الحفاظ على توقيع وموثوقية المنصة.'
@@ -648,14 +648,14 @@ export const BrandingSettingsView: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
-                    value={formData.accentColor || '#F28C28'}
+                    value={formData.accentColor || '#C9A227'}
                     disabled={!isAuthorized}
                     onChange={e => handleInputChange('accentColor', e.target.value)}
                     className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer p-0.5 bg-transparent"
                   />
                   <input
                     type="text"
-                    value={formData.accentColor || '#F28C28'}
+                    value={formData.accentColor || '#C9A227'}
                     disabled={!isAuthorized}
                     onChange={e => handleInputChange('accentColor', e.target.value)}
                     className="w-full px-2 py-1.5 rounded-lg text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 uppercase"
@@ -904,7 +904,7 @@ export const BrandingSettingsView: React.FC = () => {
                       {formData.logoUrl ? (
                         <img src={formData.logoUrl} alt="Logo" className="max-h-6 max-w-6 object-contain" />
                       ) : (
-                        <span style={{ color: formData.accentColor || '#F28C28' }}>
+                        <span style={{ color: formData.accentColor || '#C9A227' }}>
                           {formData.shortName || 'AM'}
                         </span>
                       )}
@@ -922,8 +922,8 @@ export const BrandingSettingsView: React.FC = () => {
                   <span 
                     className="text-[10px] font-bold px-2 py-0.5 rounded-md"
                     style={{ 
-                      backgroundColor: `${formData.accentColor || '#F28C28'}22`, 
-                      color: formData.accentColor || '#F28C28' 
+                      backgroundColor: `${formData.accentColor || '#C9A227'}22`,
+                      color: formData.accentColor || '#C9A227'
                     }}
                   >
                     Enterprise
@@ -946,10 +946,10 @@ export const BrandingSettingsView: React.FC = () => {
                     }}
                   >
                     <span className="flex items-center gap-2">
-                      <Layout className="w-3.5 h-3.5" style={{ color: formData.accentColor || '#F28C28' }} />
+                      <Layout className="w-3.5 h-3.5" style={{ color: formData.accentColor || '#C9A227' }} />
                       <span>{isAr ? 'لوحة التحكم التنفيذية' : 'Executive Dashboard'}</span>
                     </span>
-                    <ChevronRight className="w-3 h-3" style={{ color: formData.accentColor || '#F28C28' }} />
+                    <ChevronRight className="w-3 h-3" style={{ color: formData.accentColor || '#C9A227' }} />
                   </div>
 
                   <div className="p-2 rounded-lg text-slate-500 dark:text-slate-400 flex items-center gap-2">
@@ -987,7 +987,7 @@ export const BrandingSettingsView: React.FC = () => {
                     {formData.logoUrl ? (
                       <img src={formData.logoUrl} alt="Logo" className="max-h-8 max-w-8 object-contain" />
                     ) : (
-                      <span className="text-lg" style={{ color: formData.accentColor || '#F28C28' }}>
+                      <span className="text-lg" style={{ color: formData.accentColor || '#C9A227' }}>
                         {formData.shortName || 'AM'}
                       </span>
                     )}

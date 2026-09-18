@@ -76,13 +76,13 @@ export const GlobalSearchModal: React.FC = () => {
         
         {/* Input Header */}
         <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 px-4 py-3">
-          <Search className="w-5 h-5 text-brand-orange shrink-0" />
+          <Search className="w-5 h-5 text-brand-gold shrink-0" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={isAr ? 'ابحث برقم القيد، الحساب، الفاتورة، أو اسم المادة...' : 'Type to search journal number, invoice, item SKU, customer...'}
-            className="w-full bg-transparent text-sm text-slate-900 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange/40 rounded-md px-1 py-1 placeholder:text-slate-400"
+            className="w-full bg-transparent text-sm text-slate-900 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/40 rounded-md px-1 py-1 placeholder:text-slate-400"
             autoFocus
           />
           <button

@@ -27,17 +27,19 @@ export const BiAnalyticsView: React.FC = () => {
   const [inventory, setInventory] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     const load = async () => {
       setIsLoading(true);
+      setLoadError(null);
       try {
         const [invoiceRes, purchaseRes, inventoryRes, accountRes] = await Promise.all([
-          ApiClient.getSalesInvoices().catch(() => []),
-          ApiClient.getPurchaseInvoices().catch(() => []),
-          ApiClient.getInventoryItems().catch(() => []),
-          ApiClient.getChartOfAccounts().catch(() => [])
+          ApiClient.getSalesInvoices(),
+          ApiClient.getPurchaseInvoices(),
+          ApiClient.getInventoryItems(),
+          ApiClient.getChartOfAccounts()
         ]);
 
         if (!active) return;
@@ -45,6 +47,8 @@ export const BiAnalyticsView: React.FC = () => {
         setPurchaseInvoices(Array.isArray(purchaseRes) ? purchaseRes : []);
         setInventory(Array.isArray(inventoryRes) ? inventoryRes : []);
         setAccounts(Array.isArray(accountRes) ? accountRes : []);
+      } catch (err: any) {
+        if (active) setLoadError(err?.message || (isAr ? 'تعذر تحميل بيانات التحليلات' : 'Unable to load analytics data'));
       } finally {
         if (active) setIsLoading(false);
       }
@@ -135,6 +139,12 @@ export const BiAnalyticsView: React.FC = () => {
             <PieChart className="h-3.5 w-3.5 text-brand-primary" />
             {isAr ? 'التحليلات' : 'Business Insights'}
           </div>
+
+          {loadError && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700" role="alert">
+              {loadError}
+            </div>
+          )}
           <h1 className="text-2xl font-bold text-slate-900">{isAr ? 'لوحة الأعمال' : 'Business Overview'}</h1>
         </div>
 

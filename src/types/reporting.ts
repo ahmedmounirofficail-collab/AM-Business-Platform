@@ -470,7 +470,7 @@ export interface ExportRequest {
 export interface ExportResult {
   fileName: string;
   mimeType: string;
-  content: string; // Base64 or formatted string;
+  content: string; // Base64 for binary exports, formatted text for text exports
   fileSizeBytes: number;
   reportHash: string;
   generatedAt: string;
@@ -503,4 +503,3 @@ export interface KPITraceabilityLineage {
   journalEntryNumbers: string[];
   sourceDocumentIds: string[];
 }
-

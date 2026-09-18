@@ -8236,7 +8236,7 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
   // 12. Business Intelligence Dataset Endpoint
   app.get('/api/v1/reports/bi-dataset', (req: Request, res: Response) => {
     const reportName = (req.query.reportName as string) || 'Enterprise BI Analytics';
-    const report = FinancialReportingEngine.generateBIDataset(reportName);
+    const report = FinancialReportingEngine.generateBIDataset(reportName, 'bi_analyst', salesInvoices);
     res.json(report);
   });
 
@@ -8264,10 +8264,10 @@ Keep your response clear, structured with key bullet points, numbers, and recomm
   });
 
   // 14. Report Export Endpoint
-  app.post('/api/v1/reports/export', (req: Request, res: Response) => {
+  app.post('/api/v1/reports/export', async (req: Request, res: Response) => {
     const { reportData, format, customTitle } = req.body;
-    const result = FinancialReportingEngine.exportReport(reportData, format || 'EXCEL', customTitle || 'Financial Report');
-    res.json(result);
+    const result = await FinancialReportingEngine.exportReportFile(reportData, format || 'EXCEL', customTitle || 'Financial Report');
+    res.json({ ...result, encoding: 'base64' });
   });
 
   // 15. Financial Report Snapshot Endpoints

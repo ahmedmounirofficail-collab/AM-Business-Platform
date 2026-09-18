@@ -79,7 +79,7 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
       case 'PAYMENT_IN_PROGRESS':
         return (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold">
-            <CreditCard className="w-3.5 h-3.5 text-[#F28C28]" />
+            <CreditCard className="w-3.5 h-3.5 text-[#C9A227]" />
             <span>{isArabic ? 'جاري معالجة الدفع' : 'Payment Processing'}</span>
           </div>
         );
@@ -109,7 +109,7 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
       {/* Top Header Bar */}
       <header className="bg-[#0B1F3A] text-white px-6 py-4 shadow-md flex items-center justify-between border-b border-[#153258]">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-[#F28C28] flex items-center justify-center font-bold text-slate-950 text-xl shadow-xs">
+          <div className="w-10 h-10 rounded-xl bg-[#C9A227] flex items-center justify-center font-bold text-slate-950 text-xl shadow-xs">
             AM
           </div>
           <div>
@@ -119,7 +119,7 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
             <div className="flex items-center gap-2 text-xs text-slate-300">
               <span>{data.branchName}</span>
               <span>•</span>
-              <span className="font-mono text-[#F28C28] font-bold">{data.terminalCode}</span>
+              <span className="font-mono text-[#C9A227] font-bold">{data.terminalCode}</span>
             </div>
           </div>
         </div>
@@ -129,7 +129,7 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
           {getStatusBadge()}
 
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#153258] text-xs font-mono text-slate-300">
-            <Clock className="w-3.5 h-3.5 text-[#F28C28]" />
+            <Clock className="w-3.5 h-3.5 text-[#C9A227]" />
             <span>{timeString}</span>
           </div>
 
@@ -138,7 +138,7 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
             className="px-2.5 py-1.5 rounded-xl bg-[#153258] hover:bg-[#1f4375] text-xs font-bold flex items-center gap-1.5 text-slate-200 transition cursor-pointer"
             title="Toggle Language / تبديل اللغة"
           >
-            <Globe className="w-3.5 h-3.5 text-[#F28C28]" />
+            <Globe className="w-3.5 h-3.5 text-[#C9A227]" />
             <span>{isArabic ? 'English' : 'عربي'}</span>
           </button>
 
@@ -161,7 +161,7 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
           {/* Welcome Screen when IDLE */}
           {data.state === 'IDLE' && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 sm:p-12 text-center shadow-xs flex flex-col items-center justify-center min-h-[480px]">
-              <div className="w-20 h-20 rounded-3xl bg-[#0B1F3A]/5 dark:bg-[#F28C28]/10 text-[#F28C28] flex items-center justify-center mb-6">
+              <div className="w-20 h-20 rounded-3xl bg-[#0B1F3A]/5 dark:bg-[#C9A227]/10 text-[#C9A227] flex items-center justify-center mb-6">
                 <Store className="w-10 h-10" />
               </div>
               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-3">
@@ -173,7 +173,7 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
                   : 'Please place your items on the counter. We are pleased to serve you today.'}
               </p>
               <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-600 dark:text-slate-300">
-                <Sparkles className="w-4 h-4 text-[#F28C28]" />
+                <Sparkles className="w-4 h-4 text-[#C9A227]" />
                 <span>{isArabic ? 'كاشير المحطة: ' : 'Cashier on duty: '}</span>
                 <span className="font-bold text-slate-900 dark:text-white">{data.cashierName}</span>
               </div>
@@ -185,12 +185,12 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs flex flex-col min-h-[480px]">
               <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-3">
                 <div className="flex items-center gap-2">
-                  <Receipt className="w-5 h-5 text-[#0B1F3A] dark:text-[#F28C28]" />
+                  <Receipt className="w-5 h-5 text-[#0B1F3A] dark:text-[#C9A227]" />
                   <h2 className="font-bold text-base text-slate-900 dark:text-white">
                     {isArabic ? 'سلة المشتريات الحالية' : 'Itemized Receipt Lines'}
                   </h2>
                 </div>
-                <span className="px-3 py-1 rounded-full bg-[#0B1F3A]/5 dark:bg-[#F28C28]/10 text-[#0B1F3A] dark:text-[#F28C28] font-mono text-xs font-bold">
+                <span className="px-3 py-1 rounded-full bg-[#0B1F3A]/5 dark:bg-[#C9A227]/10 text-[#0B1F3A] dark:text-[#C9A227] font-mono text-xs font-bold">
                   {data.lines.length} {isArabic ? 'أصناف' : 'items'}
                 </span>
               </div>
@@ -244,7 +244,7 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
               {/* Status Message Footer */}
               <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
                 <span>{isArabic ? 'الأسعار تشمل ضريبة القيمة المضافة 15%' : 'Prices include 15% VAT'}</span>
-                <span className="font-mono font-bold text-[#0B1F3A] dark:text-[#F28C28]">
+                <span className="font-mono font-bold text-[#0B1F3A] dark:text-[#C9A227]">
                   {data.lines.reduce((acc, l) => acc + l.quantity, 0).toFixed(3)} {isArabic ? 'إجمالي الكمية' : 'Total Qty'}
                 </span>
               </div>
@@ -286,7 +286,7 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
             </div>
 
             {/* GRAND TOTAL DISPLAY (High Contrast & Large Font) */}
-            <div className="p-5 rounded-2xl bg-[#0B1F3A] text-white border-2 border-[#F28C28] shadow-lg space-y-1">
+            <div className="p-5 rounded-2xl bg-[#0B1F3A] text-white border-2 border-[#C9A227] shadow-lg space-y-1">
               <div className="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono">
                 {isArabic ? 'المبلغ الإجمالي المطلوب' : 'Total Amount Due'}
               </div>
@@ -294,7 +294,7 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
                 <span className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-white">
                   {data.grandTotal.toFixed(2)}
                 </span>
-                <span className="text-xl font-bold text-[#F28C28] font-mono">{data.currency}</span>
+                <span className="text-xl font-bold text-[#C9A227] font-mono">{data.currency}</span>
               </div>
             </div>
 
@@ -302,7 +302,7 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
             {data.state === 'PAYMENT_IN_PROGRESS' && (
               <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 space-y-3">
                 <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-sm">
-                  <CreditCard className="w-4 h-4 text-[#F28C28]" />
+                  <CreditCard className="w-4 h-4 text-[#C9A227]" />
                   <span>{isArabic ? 'الدفع قيد التنفيذ' : 'Payment in Progress'}</span>
                 </div>
                 <div className="text-xs text-amber-700 dark:text-amber-400">
@@ -353,7 +353,7 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
 
                     {/* QR Code Indicator */}
                     <div className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
-                      <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[#0B1F3A] dark:text-[#F28C28]">
+                      <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[#0B1F3A] dark:text-[#C9A227]">
                         <QrCode className="w-8 h-8" />
                       </div>
                       <div className="space-y-0.5">
@@ -380,7 +380,7 @@ export const CustomerFacingDisplayView: React.FC<CustomerFacingDisplayViewProps>
             {isArabic ? 'إيه إم لتخطيط موارد المؤسسات' : 'AM ERP Engine'}
           </span>
           <span>•</span>
-          <span className="text-[#F28C28] font-sans font-semibold">
+          <span className="text-[#C9A227] font-sans font-semibold">
             {isArabic ? '«كل قرار ناجح يبدأ برقم صحيح»' : '"Every successful decision begins with an accurate number"'}
           </span>
         </div>

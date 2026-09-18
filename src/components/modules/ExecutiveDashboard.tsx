@@ -43,6 +43,7 @@ import {
 } from 'recharts';
 import { usePlatform } from '../../context/PlatformContext';
 import { ApiClient } from '../../services/apiClient';
+import { WorkflowGuidance } from '../common/WorkflowGuidance';
 
 export const ExecutiveDashboard: React.FC = () => {
   const { lang, setActiveModule, triggerReload, reloadTrigger, activeCompany, branding } = usePlatform();
@@ -67,13 +68,13 @@ export const ExecutiveDashboard: React.FC = () => {
       setLoadError(null);
       try {
         const [jRes, iRes, piRes, invRes, accRes, appRes, anomRes] = await Promise.all([
-          ApiClient.getJournalEntries().catch(() => []),
-          ApiClient.getSalesInvoices().catch(() => []),
-          ApiClient.getPurchaseInvoices().catch(() => []),
-          ApiClient.getInventoryItems().catch(() => []),
-          ApiClient.getChartOfAccounts().catch(() => []),
-          ApiClient.getApprovalRequests().catch(() => []),
-          ApiClient.getAnomalies().catch(() => [])
+        ApiClient.getJournalEntries(),
+        ApiClient.getSalesInvoices(),
+        ApiClient.getPurchaseInvoices(),
+        ApiClient.getInventoryItems(),
+        ApiClient.getChartOfAccounts(),
+        ApiClient.getApprovalRequests(),
+        ApiClient.getAnomalies()
         ]);
 
         if (isMounted) {
@@ -243,7 +244,7 @@ export const ExecutiveDashboard: React.FC = () => {
   // Dynamic Stock Category Distribution derived from actual items
   const stockCategoryData = useMemo(() => {
     const categoryTotals: Record<string, number> = {};
-    const palette = ['#0B1D36', '#CAAF7D', '#10B981', '#3B82F6', '#64748B', '#8B5CF6', '#94A3B8'];
+    const palette = ['#0B1D36', '#C9A227', '#10B981', '#3B82F6', '#64748B', '#8B5CF6', '#94A3B8'];
 
     inventory.forEach(item => {
       const cat = item.category || item.categoryName || (isAr ? 'عام' : 'General');
@@ -311,6 +312,14 @@ export const ExecutiveDashboard: React.FC = () => {
           </button>
         </div>
       </header>
+
+      <WorkflowGuidance
+        title={isAr ? 'كيفية قراءة لوحة الأعمال' : 'How to read this dashboard'}
+        steps={isAr
+          ? ['راجع المؤشرات من السجلات المحفوظة قبل اتخاذ القرار.', 'افتح الفاتورة أو الاستلام أو القيد المصدر عند الحاجة للتحقق.', 'استخدم التحديث بعد تسجيل عملية جديدة.']
+          : ['Review the indicators sourced from persisted records before making decisions.', 'Open the source invoice, receipt, or journal when verification is needed.', 'Refresh after recording a new business transaction.']}
+        impact={isAr ? 'الأثر: اللوحة للعرض فقط ولا تنشئ حركات مالية أو مخزنية.' : 'Impact: the dashboard is read-only and does not create financial or inventory movements.'}
+      />
 
       {loadError && (
         <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs flex items-center justify-between">

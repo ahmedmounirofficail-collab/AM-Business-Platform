@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BarChart3, RefreshCw, FileText, Package, Landmark, ReceiptText, AlertCircle } from 'lucide-react';
 import { usePlatform } from '../../context/PlatformContext';
 import { ApiClient } from '../../services/apiClient';
+import { WorkflowGuidance } from '../common/WorkflowGuidance';
 
 type ReportTab = 'finance' | 'inventory' | 'assets' | 'treasury' | 'tax';
 
@@ -95,6 +96,30 @@ export const ReportsCenterView: React.FC = () => {
   const number = (value: unknown) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
   const reportTitle = isAr ? tabs.find(item => item.id === tab)?.labelAr : tabs.find(item => item.id === tab)?.label;
 
+  const exportReport = async (format: 'PDF' | 'EXCEL') => {
+    if (!data) return;
+    try {
+      const result = await ApiClient.exportFinancialReport({
+        reportData: data,
+        format,
+        customTitle: reportTitle || 'Financial Report'
+      });
+      if (!result?.content || !result?.fileName) {
+        throw new Error(isAr ? 'استجابة التصدير غير صالحة' : 'The export response did not contain a file payload');
+      }
+      const bytes = Uint8Array.from(atob(result.content), character => character.charCodeAt(0));
+      const blob = new Blob([bytes], { type: result.mimeType || 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = result.fileName;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err?.message || (isAr ? 'تعذر تصدير التقرير' : 'Unable to export report'));
+    }
+  };
+
   return (
     <div className="reports-workspace report-shell p-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800 pb-5">
@@ -110,6 +135,14 @@ export const ReportsCenterView: React.FC = () => {
         </button>
       </div>
 
+      <WorkflowGuidance
+        title={isAr ? 'كيفية استخدام مركز التقارير' : 'How to use the report center'}
+        steps={isAr
+          ? ['اختر التقرير والفترة المناسبة، ثم راجع الإجماليات قبل الاعتماد.', 'استخدم الطباعة أو التصدير لحفظ نسخة من البيانات الحالية.', 'انتقل إلى المستندات المصدر عند ظهور فرق أو رصيد غير متوقع.']
+          : ['Choose the report and period, then review totals before relying on them.', 'Use print or export to retain a copy of the current persisted data.', 'Trace unexpected balances back to the source document and journal.']}
+        impact={isAr ? 'الأثر: التقارير للعرض والتحليل فقط؛ لا تنشئ قيدًا أو حركة مخزون.' : 'Impact: reports are read-only; they do not create journals or inventory movements.'}
+      />
+
       <div className="flex flex-wrap gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200/70 dark:border-slate-700/70 w-fit">
         {tabs.map(item => {
           const Icon = item.icon;
@@ -117,6 +150,15 @@ export const ReportsCenterView: React.FC = () => {
             <Icon className="w-3.5 h-3.5" /> {isAr ? item.labelAr : item.label}
           </button>;
         })}
+      </div>
+
+      <div className="flex flex-wrap gap-2" data-print-hidden="true">
+        <button type="button" onClick={() => window.print()} disabled={loading || !data} className="rounded-lg border border-slate-300 px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50">
+          {isAr ? 'طباعة التقرير' : 'Print report'}
+        </button>
+        <button type="button" onClick={() => exportReport('EXCEL')} disabled={loading || !data} className="rounded-lg bg-brand-navy px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-50">
+          {isAr ? 'تصدير Excel' : 'Export Excel'}
+        </button>
       </div>
 
       {error && <div className="rounded-lg border border-rose-200 bg-rose-50 text-rose-700 px-4 py-3 text-xs flex items-center gap-2"><AlertCircle className="w-4 h-4" />{error}</div>}

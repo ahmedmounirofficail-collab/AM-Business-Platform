@@ -76,7 +76,7 @@ const MainLayout: React.FC = () => {
           {/* AM Platform Monogram */}
           <div className="mx-auto w-16 h-16 rounded-lg bg-brand-navy border border-brand-navy-light flex items-center justify-center relative">
             <span className="text-2xl font-black tracking-tight text-white">AM</span>
-            <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-brand-orange ring-4 ring-[#061224]" />
+            <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-brand-gold ring-4 ring-[#061224]" />
           </div>
 
           <div className="space-y-2">
@@ -90,7 +90,7 @@ const MainLayout: React.FC = () => {
 
           {/* Clean Spinner and Status */}
           <div className="flex flex-col items-center gap-3 pt-2">
-            <RefreshCw className="w-6 h-6 animate-spin text-brand-orange" />
+            <RefreshCw className="w-6 h-6 animate-spin text-brand-gold" />
             <span className="text-xs text-slate-400 font-mono">
               {isAr ? 'التحقق من سجلات المنشأة في قاعدة البيانات...' : 'Querying SQLite onboarding status for active company...'}
             </span>
@@ -130,7 +130,7 @@ const MainLayout: React.FC = () => {
 
           <button
             onClick={retryPlatformInit}
-            className="w-full py-2.5 px-4 rounded-md bg-brand-orange hover:bg-brand-orange-hover text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+            className="w-full py-2.5 px-4 rounded-md bg-brand-gold hover:bg-brand-gold-muted text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <RefreshCw className="w-4 h-4" />
             {isAr ? 'إعادة المحاولة الآن' : 'Retry Verification Now'}
