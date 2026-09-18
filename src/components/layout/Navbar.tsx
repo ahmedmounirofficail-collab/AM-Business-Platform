@@ -90,10 +90,10 @@ export const Navbar: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors">
-      <div className="flex h-[4.25rem] items-center justify-between px-4 sm:px-6 lg:px-7">
+      <div className="flex min-w-0 h-[4.25rem] items-center justify-between px-4 sm:px-6 lg:px-7">
 
         {/* Left: Mobile Menu Toggle & Brand Identity */}
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
 
           {/* Mobile Hamburger Toggle */}
           <button
@@ -104,7 +104,7 @@ export const Navbar: React.FC = () => {
             {mobileMenuOpen ? <X className="w-5 h-5 text-amber-500" /> : <Menu className="w-5 h-5" />}
           </button>
 
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveModule('dashboard')}>
+            <div className="flex min-w-0 items-center gap-3 cursor-pointer" onClick={() => setActiveModule('dashboard')}>
             <div
               className="flex h-9 w-9 items-center justify-center rounded-md text-white font-black border overflow-hidden shrink-0"
               style={{
@@ -122,9 +122,9 @@ export const Navbar: React.FC = () => {
                 </span>
               )}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-900 dark:text-white text-base tracking-tight">
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="max-w-[220px] truncate font-bold text-slate-900 dark:text-white text-base tracking-tight">
                   {isAr
                     ? (branding?.appNameAr || branding?.appName || 'نظام إيه إم لإدارة الأعمال')
                     : (branding?.appName || 'AM Business OS')}
@@ -146,7 +146,7 @@ export const Navbar: React.FC = () => {
             </div>
           </div>
 
-          <div className="hidden lg:flex items-center gap-2 border-l border-r border-slate-200 dark:border-slate-800 px-4 py-1 mx-3">
+          <div className="hidden lg:flex min-w-0 items-center gap-2 border-l border-r border-slate-200 dark:border-slate-800 px-4 py-1 mx-3">
             {/* Tenant Selector */}
             <div className="flex items-center gap-2 text-xs">
               <Layers className="w-4 h-4 text-[#C9A227]" />
@@ -156,7 +156,7 @@ export const Navbar: React.FC = () => {
                   const t = tenants.find(item => item.id === e.target.value);
                   if (t) setActiveTenant(t);
                 }}
-                className="bg-transparent font-semibold text-slate-800 dark:text-slate-200 border-none focus:outline-hidden cursor-pointer"
+                className="max-w-[150px] truncate bg-transparent font-semibold text-slate-800 dark:text-slate-200 border-none focus:outline-hidden cursor-pointer"
               >
                 {tenants.map(t => (
                   <option key={t.id} value={t.id} className="dark:bg-slate-900">{t.name}</option>
@@ -188,7 +188,7 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Center: Global Search Trigger */}
-        <div className="hidden md:flex flex-1 max-w-md mx-6">
+        <div className="hidden md:flex min-w-0 flex-1 max-w-md mx-6">
           <button
             onClick={() => setIsSearchOpen(true)}
             className="w-full flex items-center justify-between rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2 text-xs text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 transition cursor-pointer"
@@ -204,7 +204,7 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Right: Actions, Mobile Search, Lang, Theme, Role, Profile */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
 
           {/* Mobile Search Icon */}
           <button

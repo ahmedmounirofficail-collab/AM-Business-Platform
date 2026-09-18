@@ -90,7 +90,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
     setLoadError(null);
     if (!companyId || !tenantId) {
       setLoading(false);
-      setLoadError(isAr ? 'تعذر تحميل إعدادات النسخة التجريبية' : 'تعذر تحميل إعدادات النسخة التجريبية');
+      setLoadError(isAr ? 'ابدأ بإدخال بيانات منشأتك' : 'Start by entering your business details');
       return;
     }
 
@@ -127,7 +127,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
       setFormData(initialForm);
     } catch (err) {
       console.error('Error fetching wizard data:', err);
-      setLoadError(isAr ? 'تعذر تحميل إعدادات النسخة التجريبية' : 'تعذر تحميل إعدادات النسخة التجريبية');
+      setLoadError(isAr ? 'تعذر تحميل إعدادات المنشأة' : 'Unable to load business setup');
     } finally {
       setLoading(false);
     }
@@ -193,7 +193,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
   // Submit Step to Server
   const handleAdvanceStep = async () => {
     if (!companyId || !tenantId) {
-      setRequestError('تعذر تحميل إعدادات النسخة التجريبية');
+      setRequestError(isAr ? 'تعذر تحميل إعدادات المنشأة' : 'Unable to load business setup');
       return;
     }
     setSaving(true);
@@ -249,11 +249,11 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
   // Final Certification & Materialization Sign-Off
   const handleCompleteCertification = async () => {
     if (!companyId || !tenantId) {
-      setRequestError('تعذر تحميل إعدادات النسخة التجريبية');
+      setRequestError(isAr ? 'تعذر تحميل إعدادات المنشأة' : 'Unable to load business setup');
       return;
     }
     if (!readiness?.isReady) {
-      setRequestError('لا يمكن اعتماد النسخة التجريبية بعد');
+      setRequestError(isAr ? 'لا يمكن إكمال الإعداد بعد' : 'Setup cannot be completed yet');
       return;
     }
     setSaving(true);
@@ -266,7 +266,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setRequestError('لا يمكن اعتماد النسخة التجريبية بعد');
+        setRequestError(isAr ? 'لا يمكن إكمال الإعداد بعد' : 'Setup cannot be completed yet');
         return;
       }
       setCertificate(data.certificate);
@@ -277,7 +277,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
       markOnboardingCompleted();
     } catch (err: any) {
       console.error('Certification error:', err);
-      setRequestError('تعذر اعتماد النسخة التجريبية. يرجى إعادة المحاولة.');
+      setRequestError(isAr ? 'تعذر إكمال الإعداد. يرجى إعادة المحاولة.' : 'Setup could not be completed. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -287,12 +287,60 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-[600px] text-slate-500">
         <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mr-3" />
-        <span className="text-lg font-medium">جاري تحميل إعدادات النسخة التجريبية...</span>
+        <span className="text-lg font-medium">{isAr ? 'جارٍ تحميل إعدادات المنشأة...' : 'Loading business setup...'}</span>
       </div>
     );
   }
 
   if (loadError) {
+    if (!companyId || !tenantId) {
+      return (
+        <div className="min-h-screen bg-[#061224] px-4 py-10 text-white sm:px-8" dir={isAr ? 'rtl' : 'ltr'}>
+          <div className="mx-auto max-w-3xl">
+            <div className="mb-8 flex items-center gap-4">
+              <img src="/am-monogram.svg" alt="AM" className="h-16 w-16 rounded-xl border border-[#C9A227] bg-[#0B1F3A] p-3" />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#C9A227]">AM Business Platform</p>
+                <h1 className="mt-1 text-3xl font-black">{isAr ? 'ابدأ إعداد منشأتك' : 'Set up your business'}</h1>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-[#0B1F3A] p-6 shadow-2xl sm:p-8">
+              <div className="mb-6 grid gap-3 sm:grid-cols-3">
+                {[
+                  isAr ? 'هوية المنشأة' : 'Business identity',
+                  isAr ? 'التشغيل والمحاسبة' : 'Operations & accounting',
+                  isAr ? 'المستخدم والأرصدة' : 'Admin & balances'
+                ].map((label, index) => (
+                  <div key={label} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
+                    <span className="mb-2 block text-xs text-[#C9A227]">{index + 1}</span>{label}
+                  </div>
+                ))}
+              </div>
+              <p className="mb-6 text-sm leading-6 text-slate-300">
+                {isAr
+                  ? 'سنحفظ تقدمك بعد كل خطوة. لن نضيف عملاء أو منتجات أو معاملات تجريبية إلى قاعدة بياناتك.'
+                  : 'Your progress is saved after every step. No customers, products, or transactions will be added automatically.'}
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="text-sm font-semibold">
+                  {isAr ? 'اسم المنشأة' : 'Business name'}
+                  <input className="mt-2 w-full rounded-lg border border-white/15 bg-white px-3 py-2 text-slate-900" value={bootstrapForm.tenantName} onChange={e => setBootstrapForm(v => ({ ...v, tenantName: e.target.value }))} />
+                </label>
+                <label className="text-sm font-semibold">
+                  {isAr ? 'اسم الشركة القانوني' : 'Legal company name'}
+                  <input className="mt-2 w-full rounded-lg border border-white/15 bg-white px-3 py-2 text-slate-900" value={bootstrapForm.companyName} onChange={e => setBootstrapForm(v => ({ ...v, companyName: e.target.value }))} />
+                </label>
+              </div>
+              {requestError && <p role="alert" className="mt-4 rounded-lg border border-rose-400/40 bg-rose-950/40 p-3 text-sm text-rose-200">{requestError}</p>}
+              <button type="button" disabled={bootstraping} onClick={handleBootstrapSetup} className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#C9A227] px-5 py-3 font-bold text-[#061224] disabled:opacity-60">
+                {bootstraping ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                {isAr ? 'حفظ وبدء المعالج' : 'Save and start setup'}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="max-w-3xl mx-auto p-6">
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center text-rose-800">
@@ -333,8 +381,8 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
               </div>
               <p className="text-xs text-slate-300">
                 {isAr 
-                  ? '«كل قرار ناجح يبدأ برقم صحيح» — تهيئة المنشأة وضمان الجاهزية التشغيلية للنسخة التجريبية (19 خطوة نظامية)'
-                  : 'إعداد المنشأة والتحقق من جاهزية النسخة التجريبية'}
+                  ? 'تهيئة المنشأة والتحقق من الجاهزية التشغيلية (19 خطوة)'
+                  : 'Configure your business and verify operational readiness'}
               </p>
             </div>
           </div>
@@ -360,7 +408,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
           {wizardState?.isCompleted && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              {isAr ? 'تم الاعتماد والجاهزية' : 'Certified Pilot-Ready'}
+              {isAr ? 'تم إكمال الإعداد' : 'Setup completed'}
             </span>
           )}
         </div>
@@ -970,7 +1018,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {isAr ? 'ملف النشاط التشغيلي للنسخة التجريبية' : 'Pilot Business Profile *'}
+                      {isAr ? 'ملف النشاط التشغيلي' : 'Business profile *'}
                     </label>
                     <select
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
@@ -1101,7 +1149,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                       <div>
                         <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                           <Award className="w-4 h-4 text-blue-600" />
-                          {isAr ? 'فحص جاهزية النسخة التجريبية (16 معيارًا)' : 'Pilot Readiness Check (16 requirements)'}
+                          {isAr ? 'فحص جاهزية الإعداد (16 معيارًا)' : 'Setup readiness check (16 requirements)'}
                         </h3>
                         <p className="text-xs text-slate-500">
                           {isAr ? 'يتم التحقق من اكتمال كافة البيانات التشغيلية والقانونية والمحاسبية' : 'Evaluates server-side persisted state against authoritative controls'}
@@ -1160,12 +1208,12 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                   <div className="p-6 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="space-y-1">
                       <div className="font-bold text-slate-900 dark:text-slate-100">
-                        {isAr ? 'اعتماد وتشغيل النسخة التجريبية' : 'Approve and start the pilot'}
+                        {isAr ? 'إكمال الإعداد وبدء التشغيل' : 'Complete setup and start operating'}
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md">
                         {isAr
-                          ? 'عند الاعتماد، سيتم إنشاء شهادة التشغيل الرقمية وتثبيت كافة السجلات التشغيلية في قاعدة البيانات وتفعيل عمليات المبيعات ونقاط البيع.'
-                          : 'Materializes all core entities into durable SQLite, issues cryptographic completion certificate, and unlocks live transactional operations.'}
+                          ? 'بعد الإكمال، تُحفظ إعداداتك في قاعدة البيانات وتصبح المنصة جاهزة لإدخال البيانات والمعاملات الفعلية.'
+                          : 'Your configuration is saved durably and the platform is unlocked for real business data and transactions.'}
                       </p>
                     </div>
 
@@ -1175,7 +1223,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                       className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
                     >
                       <Award className="w-4 h-4" />
-                      {saving ? (isAr ? 'جاري الاعتماد...' : 'جاري الاعتماد...') : readiness?.isReady ? 'اعتماد وتشغيل النسخة التجريبية' : 'لا يمكن اعتماد النسخة التجريبية بعد'}
+                      {saving ? (isAr ? 'جارٍ إكمال الإعداد...' : 'Completing setup...') : readiness?.isReady ? (isAr ? 'إكمال الإعداد' : 'Complete setup') : (isAr ? 'لا يمكن إكمال الإعداد بعد' : 'Setup cannot be completed yet')}
                     </button>
                   </div>
                 </div>
@@ -1242,7 +1290,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
                 <Award className="w-8 h-8" />
               </div>
               <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">
-                {isAr ? 'شهادة اكتمال الإعداد والجاهزية التشغيلية' : 'Pilot Readiness Certificate'}
+                {isAr ? 'شهادة اكتمال الإعداد والجاهزية التشغيلية' : 'Setup completion certificate'}
               </h3>
               <p className="text-xs font-mono text-slate-400">
                 {certificate.certificateId}

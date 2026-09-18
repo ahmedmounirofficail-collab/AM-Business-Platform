@@ -75,7 +75,7 @@ const MainLayout: React.FC = () => {
         <div className="max-w-md w-full text-center space-y-6">
           {/* AM Platform Monogram */}
           <div className="mx-auto w-16 h-16 rounded-lg bg-brand-navy border border-brand-navy-light flex items-center justify-center relative">
-            <span className="text-2xl font-black tracking-tight text-white">AM</span>
+            <img src="/am-monogram.svg" alt="AM" className="h-10 w-10 object-contain" />
             <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-brand-gold ring-4 ring-[#061224]" />
           </div>
 
@@ -135,42 +135,6 @@ const MainLayout: React.FC = () => {
             <RefreshCw className="w-4 h-4" />
             {isAr ? 'إعادة المحاولة الآن' : 'Retry Verification Now'}
           </button>
-        </div>
-      </div>
-    );
-  }
-
-  const isFreshInstall = !isPlatformInitializing && !platformInitError && !currentUser && !activeCompany && !activeTenant;
-
-  if (isFreshInstall) {
-    return (
-      <div className="min-h-screen bg-[#F8FAFC] text-slate-900" dir={dir}>
-        <div className="mx-auto max-w-4xl px-6 py-16">
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-            <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#0B1F3A] text-lg font-bold text-white">AM</div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">AM Business OS</p>
-                <h1 className="text-3xl font-bold text-slate-900">Welcome</h1>
-              </div>
-            </div>
-
-            <p className="max-w-2xl text-base text-slate-600">
-              {isAr
-                ? 'هذا النظام جاهز لإعداد شركتك الأولى. ابدأ بتكوين الشركة والهوية والضرائب وبيانات التشغيل الأساسية.'
-                : 'This workspace is ready for your first company setup. Start your first run to configure company identity, tax, accounting, and operations.'}
-            </p>
-
-            <div className="mt-8 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => setActiveModule('onboarding_wizard')}
-                className="rounded-lg bg-[#0B1F3A] px-5 py-3 text-sm font-semibold text-white hover:bg-[#122d52]"
-              >
-                {isAr ? 'ابدأ الإعداد' : 'Start Setup'}
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     );

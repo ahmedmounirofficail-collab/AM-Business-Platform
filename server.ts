@@ -1782,12 +1782,11 @@ function initializePilotPersistence(): void {
         }
       }
     }
-    if (process.env.NODE_ENV === 'production' && users.length === 0) {
-      throw new Error(
-        'PRODUCTION BOOTSTRAP REQUIRED: no users exist in the configured database. ' +
-        'Provision the first administrator through the deployment bootstrap process before starting the application.'
-      );
-    }
+    // A brand-new production database is intentionally allowed to start empty.
+    // The first administrator is created transactionally by the setup wizard;
+    // rejecting an empty database here made the production first-run flow
+    // impossible. Existing users still require the explicit credential policy
+    // below.
     // Initialize durable rate limiting and account lockout persistence in SecurityEngine
     SecurityEngine.initPersistence(pilotDb);
     // Ensure all users have secure cryptographic credentials (PBKDF2/SHA512)
@@ -1799,15 +1798,15 @@ function initializePilotPersistence(): void {
     if (process.env.NODE_ENV === 'production' && needsBootstrapPin && !process.env.INITIAL_CASHIER_PIN) {
       throw new Error('CRITICAL SECURITY CONFIGURATION ERROR: INITIAL_CASHIER_PIN is required to bootstrap production users.');
     }
-    const initialPassword = process.env.INITIAL_ADMIN_PASSWORD || 'Admin@2026!';
-    const initialPin = process.env.INITIAL_CASHIER_PIN || '1234';
+    const initialPassword = process.env.INITIAL_ADMIN_PASSWORD;
+    const initialPin = process.env.INITIAL_CASHIER_PIN;
     users.forEach(u => {
       let updated = false;
-      if (!u.passwordHash) {
+      if (!u.passwordHash && initialPassword) {
         u.passwordHash = SecurityEngine.hashPassword(initialPassword);
         updated = true;
       }
-      if (!u.pinHash) {
+      if (!u.pinHash && initialPin) {
         u.pinHash = SecurityEngine.hashPin(initialPin);
         updated = true;
       }

@@ -231,15 +231,17 @@ export class OnboardingStepValidator {
         if (!data.adminFullName || typeof data.adminFullName !== 'string' || data.adminFullName.trim().length < 3) {
           errors.adminFullName = 'Administrator Full Name is required.';
         }
-        // Validate password policy if setting new password
-        if (data.adminPassword) {
+        if (!data.adminPassword || typeof data.adminPassword !== 'string') {
+          errors.adminPassword = 'A unique administrator password is required.';
+        } else {
           const pwdCheck = SecurityEngine.validatePassword(data.adminPassword);
           if (!pwdCheck.valid) {
             errors.adminPassword = pwdCheck.error || 'Password does not meet enterprise security requirements.';
           }
         }
-        // Validate cashier PIN if provided
-        if (data.adminPin) {
+        if (!data.adminPin || typeof data.adminPin !== 'string') {
+          errors.adminPin = 'A unique administrator PIN is required.';
+        } else {
           const pinCheck = SecurityEngine.validatePin(data.adminPin);
           if (!pinCheck.valid) {
             errors.adminPin = pinCheck.error || 'Cashier PIN must be 4-8 numeric digits.';
@@ -976,16 +978,17 @@ export class OnboardingMaterializer {
       let passwordHash = existingUser?.passwordHash;
       if (step17.adminPassword) {
         passwordHash = SecurityEngine.hashPassword(step17.adminPassword);
-      } else if (!passwordHash) {
-        // Deterministic strong default
-        passwordHash = SecurityEngine.hashPassword('Admin@Enterprise2026!');
+      }
+      if (!passwordHash) {
+        throw new Error('Administrator password is required during first-run setup.');
       }
 
       let pinHash = existingUser?.pinHash;
       if (step17.adminPin) {
         pinHash = SecurityEngine.hashPin(step17.adminPin);
-      } else if (!pinHash) {
-        pinHash = SecurityEngine.hashPin('9988');
+      }
+      if (!pinHash) {
+        throw new Error('Administrator PIN is required during first-run setup.');
       }
 
       const userEntity: User = {
@@ -1186,8 +1189,8 @@ export class OnboardingMaterializer {
         adminUsername: 'admin',
         adminEmail: input.adminEmail || 'admin@albayan.com',
         adminFullName: input.adminFullName || 'Ahmed Mounir',
-        adminPassword: input.adminPassword || 'EnterpriseAdminPass2026!',
-        adminPin: input.adminPin || '8899'
+        adminPassword: input.adminPassword,
+        adminPin: input.adminPin
       }
     };
 

@@ -19,6 +19,8 @@
     "test:invoice-http": "tsx scripts/verify_invoice_http_lifecycle.ts",
     "test:real-exports": "tsx scripts/verify_real_exports.ts",
     "test:commercial-e2e": "tsx scripts/verify_commercial_e2e.ts",
+    "test:browser-acceptance": "tsx scripts/verify_browser_acceptance.ts",
+    "test:first-run": "tsx scripts/verify_first_run_setup.ts",
     "seed:commercial": "tsx scripts/seed_commercial_test.ts",
     "test:p006": "tsx scripts/verify_p0_06_vertical_runtime.ts",
     "test:p007": "tsx scripts/verify_p0_07_onboarding_wizard.ts"
@@ -46,6 +48,7 @@
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
+    "playwright": "^1.63.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
