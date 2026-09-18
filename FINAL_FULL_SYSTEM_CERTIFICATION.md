@@ -28,6 +28,14 @@ inventory ledger, payroll store, or reporting engine was introduced.
   administrators or super administrators.
 - Financial period mutation checks resolve periods within the authenticated
   tenant/company scope before applying open/closed status rules.
+- Financial localization now has a shared currency boundary for ISO currency
+  identity, exchange-rate provenance, base-currency conversion, currency-aware
+  rounding, and Arabic/English locale direction.
+- Egyptian onboarding defaults to EGP and persists company base-currency and
+  localization configuration.
+- Costing evidence covers deterministic FIFO, weighted-average costing, and
+  landed-cost allocation with exact reconciliation. These calculations remain
+  inventory-domain services; canonical GL posting remains centralized.
 - User creation rejects tenant/company scope escalation by non-Super-Admin users.
 - Fiscal period controls, year-end close, next-year creation, and persistence.
 - Audit records for employee, payroll, commission, posting, approval, and closing
@@ -205,6 +213,7 @@ npm audit --audit-level=high
 - `scripts/verify_final_accounting_certification.ts`
 - `data/browser-acceptance/`
 - `scripts/verify_p0_route_controls.ts`
+- `scripts/verify_financial_localization_costing.ts`
 
 ## Remaining external dependencies
 

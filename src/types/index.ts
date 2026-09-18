@@ -105,6 +105,13 @@ export interface Company {
   phone?: string;
   email?: string;
   website?: string;
+  localization?: {
+    locale: string;
+    direction: 'rtl' | 'ltr';
+    dateFormat: string;
+    numberFormat: string;
+    currency: string;
+  };
   logoUrl?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -256,6 +263,8 @@ export interface ExchangeRate {
   toCurrency: string;
   rate: number;
   effectiveDate: string;
+  source?: string;
+  rateType?: 'SPOT' | 'CLOSING' | 'AVERAGE' | 'HISTORICAL';
 }
 
 export interface FiscalYear {
@@ -474,6 +483,7 @@ export interface Account {
   accountType: 'Cash' | 'Receivable' | 'Payable' | 'Inventory' | 'TaxPayable' | 'TaxReceivable' | 'Equity' | 'Revenue' | 'Expense' | 'Property';
   parentId?: string | null;
   balance: number;
+  baseCurrencyBalance?: number;
   currency: string;
   isActive: boolean;
   level: number;
@@ -2217,4 +2227,3 @@ export interface ProjectTimesheet {
 }
 
 export * from './procurement';
-

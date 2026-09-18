@@ -4,6 +4,13 @@
  */
 
 import { Account, Currency, ExchangeRate, JournalLine } from '../types';
+import {
+  convertTransaction,
+  MonetaryTransaction,
+  multiplyMoney,
+  resolveExchangeRate,
+  roundMoney
+} from '../financial/financialLocalization';
 
 export interface CurrencyConversionResult {
   fromCurrency: string;
@@ -36,27 +43,21 @@ export class CurrencyEngine {
     exchangeRates: ExchangeRate[],
     date: string = new Date().toISOString().split('T')[0]
   ): number {
-    if (fromCurrency === toCurrency) return 1.0;
+    if (fromCurrency.toUpperCase() === toCurrency.toUpperCase()) return 1.0;
 
-    const rateObj = exchangeRates.find(
-      r => r.fromCurrency === fromCurrency && r.toCurrency === toCurrency
-    );
-
-    if (rateObj) return rateObj.rate;
-
-    // Check inverse rate
-    const inverseObj = exchangeRates.find(
-      r => r.fromCurrency === toCurrency && r.toCurrency === fromCurrency
-    );
-
-    if (inverseObj && inverseObj.rate > 0) return 1 / inverseObj.rate;
+    try {
+      return resolveExchangeRate(fromCurrency, toCurrency, exchangeRates, date).rate;
+    } catch (error) {
+      // Legacy fixtures use the configured SAR pegs until their rate catalog is migrated.
+      if (toCurrency.toUpperCase() !== 'SAR') throw error;
+    }
 
     // Default fallbacks for common SAR pegs
     if (fromCurrency === 'USD' && toCurrency === 'SAR') return 3.75;
     if (fromCurrency === 'AED' && toCurrency === 'SAR') return 1.02;
     if (fromCurrency === 'EUR' && toCurrency === 'SAR') return 4.08;
 
-    return 1.0;
+    throw new Error(`No exchange rate configured for ${fromCurrency}/${toCurrency} on ${date}.`);
   }
 
   /**
@@ -70,7 +71,7 @@ export class CurrencyEngine {
     date?: string
   ): CurrencyConversionResult {
     const rate = this.getExchangeRate(fromCurrency, toCurrency, exchangeRates, date);
-    const convertedAmount = Math.round((amount * rate) * 100) / 100;
+    const convertedAmount = multiplyMoney(amount, rate, toCurrency);
 
     return {
       fromCurrency,
@@ -80,6 +81,22 @@ export class CurrencyEngine {
       convertedAmount,
       effectiveDate: date || new Date().toISOString().split('T')[0]
     };
+  }
+
+  static convertTransaction(
+    transactionCurrency: string,
+    transactionAmount: number,
+    baseCurrency: string,
+    exchangeRates: ExchangeRate[],
+    exchangeRateDate: string
+  ): MonetaryTransaction {
+    return convertTransaction(
+      transactionCurrency,
+      transactionAmount,
+      baseCurrency,
+      exchangeRates,
+      exchangeRateDate
+    );
   }
 
   /**
@@ -93,17 +110,20 @@ export class CurrencyEngine {
   ): RevaluationResult[] {
     const results: RevaluationResult[] = [];
 
-    const foreignAccounts = accounts.filter(a => a.currency !== baseCurrency && a.isActive);
+    const normalizedBase = baseCurrency.toUpperCase();
+    const foreignAccounts = accounts.filter(a => a.currency.toUpperCase() !== normalizedBase && a.isActive);
 
     for (const acc of foreignAccounts) {
       if (acc.balance === 0) continue;
 
-      const rate = this.getExchangeRate(acc.currency, baseCurrency, exchangeRates);
+      const rate = this.getExchangeRate(acc.currency.toUpperCase(), normalizedBase, exchangeRates);
       const foreignBalance = acc.balance;
-      // Book value in base currency (assuming rate at transaction time)
-      const bookBaseBalance = foreignBalance; // Or tracked book base
-      const revaluedBaseBalance = foreignBalance * rate;
-      const unrealizedGainLoss = revaluedBaseBalance - bookBaseBalance;
+      if (acc.baseCurrencyBalance === undefined) {
+        throw new Error(`Cannot revalue foreign account ${acc.code} without a persisted base-currency book balance.`);
+      }
+      const bookBaseBalance = acc.baseCurrencyBalance;
+      const revaluedBaseBalance = roundMoney(foreignBalance * rate, normalizedBase);
+      const unrealizedGainLoss = roundMoney(revaluedBaseBalance - bookBaseBalance, normalizedBase);
 
       results.push({
         accountId: acc.id,

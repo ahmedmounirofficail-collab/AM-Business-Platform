@@ -813,6 +813,7 @@ export class OnboardingMaterializer {
         code: step2.companyCode || existingComp?.code || 'COMP-001',
         taxNumber: step2.taxNumber || existingComp?.taxNumber || '300000000000003',
         currency: step6.currencyCode || existingComp?.currency || 'SAR',
+        baseCurrency: step6.currencyCode || existingComp?.baseCurrency || 'SAR',
         country: step5.countryName || existingComp?.country || 'Saudi Arabia',
         countryCode: step5.countryCode || existingComp?.countryCode || 'SA',
         state: step5.state || existingComp?.state || '',
@@ -824,7 +825,14 @@ export class OnboardingMaterializer {
         address: step5.address || existingComp?.address || 'King Fahd Road, Business District',
         phone: step5.phone || existingComp?.phone || '+966110000000',
         email: step1.ownerEmail || existingComp?.email || operatorUser.email || 'finance@enterprise.pilot',
-        logoUrl: step4.logoUrl || existingComp?.logoUrl || ''
+        logoUrl: step4.logoUrl || existingComp?.logoUrl || '',
+        localization: {
+          locale: step5.countryCode === 'EG' ? 'ar-EG' : 'ar-SA',
+          direction: 'rtl',
+          dateFormat: step5.countryCode === 'EG' ? 'DD/MM/YYYY' : 'YYYY-MM-DD',
+          numberFormat: '1,234.56',
+          currency: step6.currencyCode || existingComp?.baseCurrency || 'SAR'
+        }
       };
       txDb.saveEntity('companies', companyEntity, tenantId, companyId);
 
@@ -1169,9 +1177,11 @@ export class OnboardingMaterializer {
         address: 'King Fahd Road'
       },
       step_6: {
-        currencyCode: input.baseCurrency || 'SAR',
-        currencyName: input.baseCurrency === 'EGP' ? 'Egyptian Pound' : 'Saudi Riyal',
-        currencySymbol: input.baseCurrency === 'EGP' ? 'EGP' : 'SAR'
+        currencyCode: input.baseCurrency || (input.country === 'EG' ? 'EGP' : 'SAR'),
+        currencyName: (input.baseCurrency || (input.country === 'EG' ? 'EGP' : 'SAR')) === 'EGP'
+          ? 'Egyptian Pound'
+          : 'Saudi Riyal',
+        currencySymbol: (input.baseCurrency || (input.country === 'EG' ? 'EGP' : 'SAR')) === 'EGP' ? 'EGP' : 'SAR'
       },
       step_7: {
         startDate: input.fiscalYearStart || '2026-01-01',
