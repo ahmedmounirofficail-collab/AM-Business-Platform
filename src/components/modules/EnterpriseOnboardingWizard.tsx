@@ -23,6 +23,7 @@ import {
   Printer
 } from 'lucide-react';
 import { usePlatform } from '../../context/PlatformContext';
+import { ApiClient } from '../../services/apiClient';
 import {
   EnterpriseReadinessReport,
   PilotIndustryProfileId,
@@ -95,12 +96,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
     }
 
     try {
-      const params = new URLSearchParams({ companyId, tenantId });
-      const res = await fetch(`/api/v1/onboarding/wizard/state?${params.toString()}`);
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const data = await res.json();
+      const data = await ApiClient.getOnboardingWizardState(companyId, tenantId);
       if (!data.success || !data.wizardState || !Array.isArray(data.wizardState.steps) || !data.readiness) {
         throw new Error('Malformed onboarding response');
       }
@@ -145,20 +141,14 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
     setRequestError(null);
 
     try {
-      const res = await fetch('/api/v1/onboarding/tenant/initialize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenantName,
-          companyName,
-          tenantCode: `TEN-${Date.now().toString().slice(-4)}`,
-          companyCode: `COMP-${Date.now().toString().slice(-4)}`,
-          profileId: 'COMMERCIAL_DISTRIBUTION'
-        })
+      const data = await ApiClient.initializeOnboardingTenant({
+        tenantName,
+        companyName,
+        tenantCode: `TEN-${Date.now().toString().slice(-4)}`,
+        companyCode: `COMP-${Date.now().toString().slice(-4)}`,
+        profileId: 'COMMERCIAL_DISTRIBUTION'
       });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data?.error || 'Unable to initialize tenant and company.');
       }
 
@@ -200,19 +190,13 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
     setRequestError(null);
     setValidationErrors({});
     try {
-      const res = await fetch('/api/v1/onboarding/wizard/step', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stepNumber: activeStep,
-          payload: formData,
-          companyId,
-          tenantId
-        })
+      const result = await ApiClient.saveOnboardingWizardStep({
+        stepNumber: activeStep,
+        payload: formData,
+        companyId,
+        tenantId
       });
-
-      const result = await res.json();
-      if (!res.ok || !result.success) {
+      if (!result.success) {
         if (result.errors) {
           setValidationErrors(result.errors);
         } else {
@@ -231,11 +215,7 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
         setActiveStep(prev => prev + 1);
       }
       // Re-fetch readiness check
-      const rRes = await fetch(`/api/v1/onboarding/readiness?${new URLSearchParams({ companyId, tenantId })}`);
-      if (!rRes.ok) {
-        throw new Error(`HTTP ${rRes.status}`);
-      }
-      const rData = await rRes.json();
+      const rData = await ApiClient.getOnboardingReadiness(companyId, tenantId);
       if (!rData.success || !rData.report) throw new Error('Malformed readiness response');
       setReadiness(rData.report);
     } catch (err: any) {
@@ -259,13 +239,8 @@ export const EnterpriseOnboardingWizard: React.FC = () => {
     setSaving(true);
     setRequestError(null);
     try {
-      const res = await fetch('/api/v1/onboarding/wizard/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, tenantId })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
+      const data = await ApiClient.completeOnboardingWizard(companyId, tenantId);
+      if (!data.success) {
         setRequestError(isAr ? 'لا يمكن إكمال الإعداد بعد' : 'Setup cannot be completed yet');
         return;
       }

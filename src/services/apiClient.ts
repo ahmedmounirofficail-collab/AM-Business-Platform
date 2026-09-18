@@ -146,6 +146,23 @@ export class ApiClient {
     }
   }
 
+  public static async fetch(input: RequestInfo | URL, options?: RequestInit): Promise<Response> {
+    const headers = new Headers(options?.headers);
+    if (!headers.has('Authorization')) {
+      const currentToken = this.getToken();
+      if (currentToken) headers.set('Authorization', `Bearer ${currentToken}`);
+    }
+
+    const response = await globalThis.fetch(input, {
+      ...options,
+      headers,
+    });
+    if (response.status === 401) {
+      this.setToken(null);
+    }
+    return response;
+  }
+
   // Auth & System Context
   static async getOnboardingWizardState(companyId: string, tenantId: string): Promise<{
     success: boolean;
@@ -171,6 +188,42 @@ export class ApiClient {
       };
       readiness?: any;
     }>(`/onboarding/wizard/state?companyId=${encodeURIComponent(companyId)}&tenantId=${encodeURIComponent(tenantId)}`);
+  }
+
+  static async initializeOnboardingTenant(data: {
+    tenantName: string;
+    companyName: string;
+    tenantCode: string;
+    companyCode: string;
+    profileId: string;
+  }): Promise<any> {
+    return this.request('/onboarding/tenant/initialize', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async saveOnboardingWizardStep(data: {
+    stepNumber: number;
+    payload: Record<string, any>;
+    companyId: string;
+    tenantId: string;
+  }): Promise<any> {
+    return this.request('/onboarding/wizard/step', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async getOnboardingReadiness(companyId: string, tenantId: string): Promise<any> {
+    return this.request(`/onboarding/readiness?companyId=${encodeURIComponent(companyId)}&tenantId=${encodeURIComponent(tenantId)}`);
+  }
+
+  static async completeOnboardingWizard(companyId: string, tenantId: string): Promise<any> {
+    return this.request('/onboarding/wizard/complete', {
+      method: 'POST',
+      body: JSON.stringify({ companyId, tenantId }),
+    });
   }
 
   static async getAuthMe(): Promise<{ user: User; tenant: Tenant; company: Company; token?: string }> {

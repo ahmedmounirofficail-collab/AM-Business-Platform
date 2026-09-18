@@ -188,37 +188,49 @@ app.post('/api/v1/onboarding/wizard/complete', (req: Request, res: Response) => 
 // Initialize a fresh unconfigured tenant and company for testing or onboarding
 app.post('/api/v1/onboarding/tenant/initialize', (req: Request, res: Response) => {
   const { tenantName, companyName, tenantCode, companyCode, profileId } = req.body;
-  const tId = `ten-${Date.now()}`;
-  const cId = `comp-${Date.now()}`;
+  const auth = (req as any).auth;
+  const tId = auth?.tenantId || `ten-${Date.now()}`;
+  const cId = auth?.companyId || `comp-${Date.now()}`;
+
+  const existingTenant = tenants.find(tenant => tenant.id === tId);
+  const existingCompany = companies.find(company => company.id === cId);
 
   const newTenant: Tenant = {
     id: tId,
-    name: tenantName || 'New Pilot Enterprise Tenant',
-    code: tenantCode || `TEN-${Date.now().toString().slice(-4)}`,
+    name: tenantName || existingTenant?.name || 'New Pilot Enterprise Tenant',
+    code: tenantCode || existingTenant?.code || `TEN-${Date.now().toString().slice(-4)}`,
     edition: 'Enterprise',
-    ownerEmail: 'admin@newenterprise.pilot',
-    active: true,
-    createdAt: new Date().toISOString()
+    ownerEmail: existingTenant?.ownerEmail || 'admin@newenterprise.pilot',
+    active: existingTenant?.active ?? true,
+    createdAt: existingTenant?.createdAt || new Date().toISOString()
   };
 
   const newComp: Company = {
     id: cId,
     tenantId: tId,
-    name: companyName || 'New Pilot Enterprise Company',
-    nameAr: 'شركة تجريبية جديدة',
-    code: companyCode || `COMP-${Date.now().toString().slice(-4)}`,
-    taxNumber: '',
-    currency: 'SAR',
-    country: 'Saudi Arabia',
-    countryCode: 'SA',
-    fiscalYearStart: '01-01',
-    address: ''
+    name: companyName || existingCompany?.name || 'New Pilot Enterprise Company',
+    nameAr: existingCompany?.nameAr || 'شركة تجريبية جديدة',
+    code: companyCode || existingCompany?.code || `COMP-${Date.now().toString().slice(-4)}`,
+    taxNumber: existingCompany?.taxNumber || '',
+    currency: existingCompany?.currency || 'SAR',
+    country: existingCompany?.country || 'Saudi Arabia',
+    countryCode: existingCompany?.countryCode || 'SA',
+    fiscalYearStart: existingCompany?.fiscalYearStart || '01-01',
+    address: existingCompany?.address || ''
   };
 
   pilotDb.saveEntity('tenants', newTenant, tId, cId);
   pilotDb.saveEntity('companies', newComp, tId, cId);
-  tenants.push(newTenant);
-  companies.push(newComp);
+  if (existingTenant) {
+    Object.assign(existingTenant, newTenant);
+  } else {
+    tenants.push(newTenant);
+  }
+  if (existingCompany) {
+    Object.assign(existingCompany, newComp);
+  } else {
+    companies.push(newComp);
+  }
 
   // Initial uncompleted profile state
   const unconfiguredState = {

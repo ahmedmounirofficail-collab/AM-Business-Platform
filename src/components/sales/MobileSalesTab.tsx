@@ -1,3 +1,4 @@
+import { ApiClient } from '../../services/apiClient';
 /**
  * AM Business Platform - Phase 3.1 Mobile Field Sales Workspace
  * Architecture Baseline: v2.8
@@ -58,10 +59,10 @@ export const MobileSalesTab: React.FC<MobileSalesTabProps> = ({ isAr, onNotify }
     setLoading(true);
     try {
       const [cRes, pRes, tRes, aRes] = await Promise.all([
-        fetch('/api/v1/sales/mobile/customers').then(r => r.json()),
-        fetch('/api/v1/sales/mobile/products').then(r => r.json()),
-        fetch('/api/v1/sales/mobile/targets').then(r => r.json()),
-        fetch('/api/v1/sales/mobile/activities').then(r => r.json())
+        ApiClient.fetch('/api/v1/sales/mobile/customers').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/mobile/products').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/mobile/targets').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/mobile/activities').then(r => r.json())
       ]);
 
       if (cRes.success) setCustomers(cRes.customers);
@@ -81,7 +82,7 @@ export const MobileSalesTab: React.FC<MobileSalesTabProps> = ({ isAr, onNotify }
 
   const handleRecordActivity = async () => {
     try {
-      const res = await fetch('/api/v1/sales/mobile/activities', {
+      const res = await ApiClient.fetch('/api/v1/sales/mobile/activities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -115,7 +116,7 @@ export const MobileSalesTab: React.FC<MobileSalesTabProps> = ({ isAr, onNotify }
         unitPrice: prod.price,
         taxRate: taxRes.taxRate
       });
-      const res = await fetch('/api/v1/sales/sync/queue/create', {
+      const res = await ApiClient.fetch('/api/v1/sales/sync/queue/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

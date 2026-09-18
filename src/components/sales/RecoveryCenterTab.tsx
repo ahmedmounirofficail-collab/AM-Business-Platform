@@ -1,3 +1,4 @@
+import { ApiClient } from '../../services/apiClient';
 /**
  * AM Business Platform - Phase 3.1 Failed Sync Recovery Center
  * Architecture Baseline: v2.8
@@ -32,7 +33,7 @@ export const RecoveryCenterTab: React.FC<RecoveryCenterTabProps> = ({ isAr, onNo
   const loadFailed = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/sales/recovery/failed');
+      const res = await ApiClient.fetch('/api/v1/sales/recovery/failed');
       const data = await res.json();
       if (data.success) {
         setFailedItems(data.failedItems);
@@ -50,7 +51,7 @@ export const RecoveryCenterTab: React.FC<RecoveryCenterTabProps> = ({ isAr, onNo
 
   const handleRetry = async (id: string) => {
     try {
-      const res = await fetch(`/api/v1/sales/recovery/${id}/retry`, { method: 'POST' });
+      const res = await ApiClient.fetch(`/api/v1/sales/recovery/${id}/retry`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         onNotify(isAr ? 'تمت إعادة محاولة المزامنة بنجاح' : data.message);
@@ -66,7 +67,7 @@ export const RecoveryCenterTab: React.FC<RecoveryCenterTabProps> = ({ isAr, onNo
 
   const handleReject = async (id: string) => {
     try {
-      const res = await fetch(`/api/v1/sales/recovery/${id}/reject`, { method: 'POST' });
+      const res = await ApiClient.fetch(`/api/v1/sales/recovery/${id}/reject`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         onNotify(isAr ? 'تم إلغاء واستبعاد المعاملة بنجاح مع تسجيل سبب التدقيق' : data.message, 'info');

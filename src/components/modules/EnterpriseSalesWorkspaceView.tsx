@@ -1,3 +1,4 @@
+import { ApiClient } from '../../services/apiClient';
 /**
  * AM Business Platform - Phase 3.1 Enterprise Sales Workspace
  * Architecture Baseline: v2.8
@@ -115,13 +116,13 @@ export const EnterpriseSalesWorkspaceView: React.FC = () => {
     setLoading(true);
     try {
       const [oRes, qRes, pRes, dRes, prRes, rRes, aRes] = await Promise.all([
-        fetch('/api/v1/sales/orders').then(r => r.json()),
-        fetch('/api/v1/sales/quotations').then(r => r.json()),
-        fetch('/api/v1/sales/pricelists').then(r => r.json()),
-        fetch('/api/v1/sales/discounts/rules').then(r => r.json()),
-        fetch('/api/v1/sales/promotions').then(r => r.json()),
-        fetch('/api/v1/sales/returns').then(r => r.json()),
-        fetch('/api/v1/sales/analytics/summary').then(r => r.json())
+        ApiClient.fetch('/api/v1/sales/orders').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/quotations').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/pricelists').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/discounts/rules').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/promotions').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/returns').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/analytics/summary').then(r => r.json())
       ]);
 
       if (oRes.success) setOrders(oRes.orders);
@@ -146,7 +147,7 @@ export const EnterpriseSalesWorkspaceView: React.FC = () => {
   // Handle Quotation Conversion
   const handleConvertQuotation = async (qId: string) => {
     try {
-      const res = await fetch(`/api/v1/sales/quotations/${qId}/convert-to-order`, {
+      const res = await ApiClient.fetch(`/api/v1/sales/quotations/${qId}/convert-to-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -169,7 +170,7 @@ export const EnterpriseSalesWorkspaceView: React.FC = () => {
   const handleExecuteTransition = async () => {
     if (!selectedOrder) return;
     try {
-      const res = await fetch(`/api/v1/sales/orders/${selectedOrder.id}/transition`, {
+      const res = await ApiClient.fetch(`/api/v1/sales/orders/${selectedOrder.id}/transition`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -196,7 +197,7 @@ export const EnterpriseSalesWorkspaceView: React.FC = () => {
   // Handle Available-To-Promise (ATP) Check
   const handleCheckAtp = async (order: SalesOrder) => {
     try {
-      const res = await fetch(`/api/v1/sales/orders/${order.id}/atp-check`);
+      const res = await ApiClient.fetch(`/api/v1/sales/orders/${order.id}/atp-check`);
       const data = await res.json();
       if (data.success) {
         setAtpData(data);
@@ -210,7 +211,7 @@ export const EnterpriseSalesWorkspaceView: React.FC = () => {
   // Handle Stock Reservation
   const handleReserveStock = async (orderId: string) => {
     try {
-      const res = await fetch(`/api/v1/sales/orders/${orderId}/reserve-stock`, { method: 'POST' });
+      const res = await ApiClient.fetch(`/api/v1/sales/orders/${orderId}/reserve-stock`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         showNotification(isAr ? 'تم حجز الكميات بالمستودع بنجاح' : 'Warehouse stock allocated and reserved successfully!');
@@ -224,7 +225,7 @@ export const EnterpriseSalesWorkspaceView: React.FC = () => {
   // Handle Generate AR Invoice
   const handleGenerateInvoice = async (orderId: string) => {
     try {
-      const res = await fetch(`/api/v1/sales/orders/${orderId}/generate-invoice`, { method: 'POST' });
+      const res = await ApiClient.fetch(`/api/v1/sales/orders/${orderId}/generate-invoice`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         showNotification(isAr ? `تم إصدار الفاتورة الضريبية ${data.invoice.invoiceNumber} وإثبات الإيراد تلقائياً` : `AR Sales Invoice ${data.invoice.invoiceNumber} generated & Revenue Recognized via Financial Event!`);
@@ -253,7 +254,7 @@ export const EnterpriseSalesWorkspaceView: React.FC = () => {
     const total = lineCalc.grossAmount;
 
     try {
-      const res = await fetch('/api/v1/sales/quotations', {
+      const res = await ApiClient.fetch('/api/v1/sales/quotations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -298,7 +299,7 @@ export const EnterpriseSalesWorkspaceView: React.FC = () => {
   // Test Pricing Resolution in Sandbox
   const handleResolvePricingSandbox = async () => {
     try {
-      const res = await fetch('/api/v1/sales/pricing/resolve', {
+      const res = await ApiClient.fetch('/api/v1/sales/pricing/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

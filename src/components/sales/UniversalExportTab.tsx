@@ -1,3 +1,4 @@
+import { ApiClient } from '../../services/apiClient';
 /**
  * AM Business Platform - Phase 3.1 Universal Relational Data Export Engine
  * Architecture Baseline: v2.8
@@ -36,7 +37,7 @@ export const UniversalExportTab: React.FC<UniversalExportTabProps> = ({ isAr, on
     setLoading(true);
     setExportResult(null);
     try {
-      const res = await fetch('/api/v1/sales/export', {
+      const res = await ApiClient.fetch('/api/v1/sales/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

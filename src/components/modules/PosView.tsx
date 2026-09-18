@@ -1,3 +1,4 @@
+import { ApiClient } from '../../services/apiClient';
 /**
  * AM Business Platform - Phase 3.1 Point of Sale (POS) & Retail Management
  * Architecture Baseline: v2.8
@@ -142,10 +143,10 @@ export const PosView: React.FC = () => {
     setLoading(true);
     try {
       const [regRes, shRes, rcRes, rtRes] = await Promise.all([
-        fetch('/api/v1/sales/pos/registers').then(r => r.json()),
-        fetch('/api/v1/sales/pos/shifts').then(r => r.json()),
-        fetch('/api/v1/sales/pos/receipts').then(r => r.json()),
-        fetch('/api/v1/sales/returns').then(r => r.json())
+        ApiClient.fetch('/api/v1/sales/pos/registers').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/pos/shifts').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/pos/receipts').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/returns').then(r => r.json())
       ]);
 
       if (regRes.success) {
@@ -734,7 +735,7 @@ export const PosView: React.FC = () => {
     }
 
     try {
-      const res = await fetch('/api/v1/sales/pos/receipts', {
+      const res = await ApiClient.fetch('/api/v1/sales/pos/receipts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -838,7 +839,7 @@ export const PosView: React.FC = () => {
       }
     }
     try {
-      const res = await fetch(`/api/v1/sales/pos/shifts/${activeShift.id}/cash-movement`, {
+      const res = await ApiClient.fetch(`/api/v1/sales/pos/shifts/${activeShift.id}/cash-movement`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -862,7 +863,7 @@ export const PosView: React.FC = () => {
   const handleCloseShift = async () => {
     if (!activeShift) return;
     try {
-      const res = await fetch(`/api/v1/sales/pos/shifts/${activeShift.id}/close`, {
+      const res = await ApiClient.fetch(`/api/v1/sales/pos/shifts/${activeShift.id}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -887,7 +888,7 @@ export const PosView: React.FC = () => {
   const handleOpenShift = async () => {
     if (!selectedRegister) return;
     try {
-      const res = await fetch('/api/v1/sales/pos/shifts/open', {
+      const res = await ApiClient.fetch('/api/v1/sales/pos/shifts/open', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -955,7 +956,7 @@ export const PosView: React.FC = () => {
       }
     }
     try {
-      const res = await fetch('/api/v1/sales/returns', {
+      const res = await ApiClient.fetch('/api/v1/sales/returns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,3 +1,4 @@
+import { ApiClient } from '../../services/apiClient';
 /**
  * AM Business Platform - Phase 3.1 Offline POS & Sync Center
  * Architecture Baseline: v2.8
@@ -61,9 +62,9 @@ export const SyncCenterTab: React.FC<SyncCenterTabProps> = ({ isAr, onNotify }) 
     setLoading(true);
     try {
       const [devRes, qRes, audRes] = await Promise.all([
-        fetch('/api/v1/sales/devices').then(r => r.json()),
-        fetch('/api/v1/sales/sync/queue').then(r => r.json()),
-        fetch('/api/v1/sales/sync/audit').then(r => r.json())
+        ApiClient.fetch('/api/v1/sales/devices').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/sync/queue').then(r => r.json()),
+        ApiClient.fetch('/api/v1/sales/sync/audit').then(r => r.json())
       ]);
 
       if (devRes.success) setDevices(devRes.devices);
@@ -104,7 +105,7 @@ export const SyncCenterTab: React.FC<SyncCenterTabProps> = ({ isAr, onNotify }) 
         items: queuedItems
       };
 
-      const res = await fetch('/api/v1/sales/sync/batch', {
+      const res = await ApiClient.fetch('/api/v1/sales/sync/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(batchRequest)
@@ -132,7 +133,7 @@ export const SyncCenterTab: React.FC<SyncCenterTabProps> = ({ isAr, onNotify }) 
   // Cryptographic Integrity Verification
   const handleVerifyIntegrity = async () => {
     try {
-      const res = await fetch('/api/v1/sales/sync/verify-integrity');
+      const res = await ApiClient.fetch('/api/v1/sales/sync/verify-integrity');
       const data = await res.json();
       if (data.success) {
         setIntegrityResult(data.integrityReport);
@@ -152,7 +153,7 @@ export const SyncCenterTab: React.FC<SyncCenterTabProps> = ({ isAr, onNotify }) 
   const handleRegisterDevice = async () => {
     if (!newDevName) return;
     try {
-      const res = await fetch('/api/v1/sales/devices/register', {
+      const res = await ApiClient.fetch('/api/v1/sales/devices/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -177,7 +178,7 @@ export const SyncCenterTab: React.FC<SyncCenterTabProps> = ({ isAr, onNotify }) 
   // Create Mock Offline Tx
   const handleCreateOfflineTx = async () => {
     try {
-      const res = await fetch('/api/v1/sales/sync/queue/create', {
+      const res = await ApiClient.fetch('/api/v1/sales/sync/queue/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

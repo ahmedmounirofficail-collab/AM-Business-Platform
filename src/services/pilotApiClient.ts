@@ -14,6 +14,7 @@ import {
   PilotMasterDataImportRow,
   StoragePersistenceReport
 } from '../types/pilot';
+import { ApiClient } from './apiClient';
 
 export class PilotApiClient {
   private static baseUrl = '/api/v1/pilot';
@@ -133,7 +134,7 @@ export class PilotApiClient {
   }
 
   public static async runPhase3DQualityGate(): Promise<any> {
-    const res = await fetch('/api/v1/pos/tests/pilot-readiness-3d/run');
+    const res = await ApiClient.fetch('/api/v1/pos/tests/pilot-readiness-3d/run');
     if (!res.ok) {
       throw new Error(`Failed to run Phase 3D Quality Gate: ${res.statusText}`);
     }

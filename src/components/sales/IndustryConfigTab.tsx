@@ -1,3 +1,4 @@
+import { ApiClient } from '../../services/apiClient';
 /**
  * AM Business Platform - Phase 3.1 Industry Vertical Configuration Center
  * Architecture Baseline: v2.8
@@ -37,7 +38,7 @@ export const IndustryConfigTab: React.FC<IndustryConfigTabProps> = ({ isAr, onNo
   const loadProfiles = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/sales/industry/profiles');
+      const res = await ApiClient.fetch('/api/v1/sales/industry/profiles');
       const data = await res.json();
       if (data.success) {
         setProfiles(data.profiles);
@@ -57,7 +58,7 @@ export const IndustryConfigTab: React.FC<IndustryConfigTabProps> = ({ isAr, onNo
 
   const handleActivateProfile = async (id: string) => {
     try {
-      const res = await fetch(`/api/v1/sales/industry/profiles/${id}/activate`, { method: 'POST' });
+      const res = await ApiClient.fetch(`/api/v1/sales/industry/profiles/${id}/activate`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         onNotify(isAr ? `تم تفعيل الملف القطاعي ${data.activeProfile.name} بنجاح` : `Activated ${data.activeProfile.name} Industry Profile!`);

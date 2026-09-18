@@ -1,3 +1,4 @@
+import { ApiClient } from '../../services/apiClient';
 /**
  * AM Business Platform - Phase 3.1 Conflict Resolution Center
  * Architecture Baseline: v2.8
@@ -36,7 +37,7 @@ export const ConflictResolutionTab: React.FC<ConflictResolutionTabProps> = ({ is
   const loadConflicts = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/sales/conflicts');
+      const res = await ApiClient.fetch('/api/v1/sales/conflicts');
       const data = await res.json();
       if (data.success) {
         setConflicts(data.conflicts);
@@ -58,7 +59,7 @@ export const ConflictResolutionTab: React.FC<ConflictResolutionTabProps> = ({ is
   const handleExecuteResolution = async () => {
     if (!selectedConflict) return;
     try {
-      const res = await fetch(`/api/v1/sales/conflicts/${selectedConflict.id}/resolve`, {
+      const res = await ApiClient.fetch(`/api/v1/sales/conflicts/${selectedConflict.id}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

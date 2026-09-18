@@ -1,3 +1,4 @@
+import { ApiClient } from '../../services/apiClient';
 /**
  * AM Business Platform - Phase 3.1 Hardening & Quality Gate Test Suite Runner
  * Architecture Baseline: v2.8
@@ -34,7 +35,7 @@ export const HardeningTestSuiteTab: React.FC<HardeningTestSuiteTabProps> = ({ is
   const runTestSuite = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/sales/tests/run');
+      const res = await ApiClient.fetch('/api/v1/sales/tests/run');
       const data = await res.json();
       if (data.success) {
         setReport(data.report);
